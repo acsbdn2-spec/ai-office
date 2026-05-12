@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Office Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f13; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Header */
+  header { background: #16161e; border-bottom: 1px solid #2d2d3a; padding: 16px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+  header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  header .subtitle { color: #64748b; font-size: 13px; }
+  .search-wrap { margin-left: auto; position: relative; }
+  .search-wrap input { background: #1e1e2a; border: 1px solid #2d2d3a; color: #e2e8f0; padding: 8px 12px 8px 36px; border-radius: 8px; font-size: 14px; width: 240px; outline: none; transition: border-color 0.2s; }
+  .search-wrap input:focus { border-color: #7c3aed; }
+  .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #64748b; pointer-events: none; }
+  .count-badge { background: #1e1e2a; border: 1px solid #2d2d3a; color: #94a3b8; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+  .api-key-wrap { display: flex; align-items: center; gap: 8px; }
+  .api-key-wrap input { background: #1e1e2a; border: 1px solid #2d2d3a; color: #e2e8f0; padding: 7px 12px; border-radius: 8px; font-size: 13px; width: 200px; outline: none; transition: border-color 0.2s; font-family: monospace; }
+  .api-key-wrap input:focus { border-color: #10b981; }
+  .api-key-wrap input::placeholder { color: #475569; font-family: inherit; }
+  .api-status { width: 8px; height: 8px; border-radius: 50%; background: #475569; flex-shrink: 0; transition: background 0.2s; }
+  .api-status.ok { background: #10b981; }
+  .api-label { font-size: 11px; color: #64748b; white-space: nowrap; }
+
+  /* Layout */
+  .layout { display: flex; flex: 1; }
+
+  /* Sidebar */
+  aside { width: 200px; min-width: 200px; background: #16161e; border-right: 1px solid #2d2d3a; padding: 16px 0; position: sticky; top: 57px; height: calc(100vh - 57px); overflow-y: auto; }
+  .sidebar-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #475569; padding: 0 16px 8px; }
+  .filter-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 16px; background: none; border: none; color: #94a3b8; font-size: 13px; cursor: pointer; text-align: left; border-left: 3px solid transparent; transition: all 0.15s; }
+  .filter-btn:hover { color: #e2e8f0; background: #1e1e2a; }
+  .filter-btn.active { color: #a78bfa; background: #1a1a2e; border-left-color: #7c3aed; }
+  .filter-btn .cat-count { margin-left: auto; font-size: 11px; color: #475569; background: #1e1e2a; padding: 1px 6px; border-radius: 10px; }
+  .filter-btn.active .cat-count { background: #2d1b69; color: #a78bfa; }
+  .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Main */
+  main { flex: 1; padding: 24px; overflow-y: auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+
+  /* Cards */
+  .card { background: #16161e; border: 1px solid #2d2d3a; border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+  .card:hover { border-color: #4c1d95; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(124,58,237,0.15); }
+  .card .accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
+  .card-emoji { font-size: 28px; margin-bottom: 10px; display: block; }
+  .card-name { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; line-height: 1.3; }
+  .card-vibe { font-size: 11px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-cat { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; margin-top: 10px; padding: 2px 8px; background: #1e1e2a; border-radius: 10px; }
+
+  /* Panel */
+  .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .panel-overlay.open { opacity: 1; pointer-events: all; }
+  .panel { position: fixed; right: 0; top: 0; bottom: 0; width: 480px; background: #16161e; border-left: 1px solid #2d2d3a; z-index: 201; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); overflow-y: auto; display: flex; flex-direction: column; }
+  .panel.open { transform: translateX(0); }
+  .panel-header { padding: 24px 24px 0; border-bottom: 1px solid #2d2d3a; padding-bottom: 20px; }
+  .panel-close { position: absolute; top: 16px; right: 16px; background: #1e1e2a; border: 1px solid #2d2d3a; color: #94a3b8; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .panel-close:hover { color: #e2e8f0; background: #2d2d3a; }
+  .panel-emoji { font-size: 40px; margin-bottom: 12px; }
+  .panel-name { font-size: 20px; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
+  .panel-cat { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 12px; }
+  .panel-vibe { font-size: 13px; color: #a78bfa; font-style: italic; padding: 10px 14px; background: #1a1a2e; border-radius: 8px; border-left: 3px solid #7c3aed; margin-bottom: 0; line-height: 1.5; }
+  .panel-body { padding: 20px 24px; flex: 1; }
+  .panel-desc-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 8px; }
+  .panel-desc { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
+  .assign-section { background: #1e1e2a; border: 1px solid #2d2d3a; border-radius: 10px; padding: 16px; }
+  .assign-label { font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .assign-label span { background: #7c3aed; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; }
+  textarea { width: 100%; background: #0f0f13; border: 1px solid #2d2d3a; color: #e2e8f0; padding: 10px 12px; border-radius: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 90px; outline: none; transition: border-color 0.2s; line-height: 1.5; }
+  textarea:focus { border-color: #7c3aed; }
+  textarea::placeholder { color: #475569; }
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  .btn { padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: #7c3aed; color: white; flex: 1; }
+  .btn-primary:hover { background: #6d28d9; }
+  .btn-secondary { background: #1e1e2a; color: #94a3b8; border: 1px solid #2d2d3a; }
+  .btn-secondary:hover { background: #2d2d3a; color: #e2e8f0; }
+  .copied-msg { color: #34d399; font-size: 12px; margin-top: 6px; display: none; }
+  .copied-msg.show { display: block; }
+  .task-list { margin-top: 16px; }
+  .task-list-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 8px; }
+  .task-item { background: #0f0f13; border: 1px solid #2d2d3a; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; }
+  .task-item .task-text { font-size: 12px; color: #94a3b8; line-height: 1.4; flex: 1; }
+  .task-item .task-del { background: none; border: none; color: #475569; cursor: pointer; font-size: 16px; padding: 0; line-height: 1; flex-shrink: 0; }
+  .task-item .task-del:hover { color: #f87171; }
+  .task-item .task-run { background: #10b981; border: none; color: white; cursor: pointer; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; flex-shrink: 0; transition: background 0.15s; }
+  .task-item .task-run:hover { background: #059669; }
+  .task-item .task-run:disabled { background: #1e1e2a; color: #475569; cursor: not-allowed; }
+  .task-output { margin-top: 8px; background: #0f0f13; border: 1px solid #2d2d3a; border-radius: 8px; padding: 12px; font-size: 12px; color: #94a3b8; line-height: 1.6; white-space: pre-wrap; display: none; }
+  .task-output.visible { display: block; }
+  .task-output.loading { color: #475569; font-style: italic; }
+  .task-output.error { color: #f87171; border-color: #7f1d1d; }
+  .output-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .output-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #10b981; }
+  .output-copy { background: none; border: none; color: #475569; cursor: pointer; font-size: 11px; padding: 0; }
+  .output-copy:hover { color: #e2e8f0; }
+  .empty-state { color: #475569; font-size: 12px; text-align: center; padding: 12px; }
+  .no-results { text-align: center; padding: 60px 20px; color: #475569; }
+  .no-results .icon { font-size: 48px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏢 AI Office</h1>
+  </div>
+  <div class="subtitle" id="headerSub">184 agents across 15 departments</div>
+  <div class="search-wrap">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input type="text" id="search" placeholder="Search agents…" oninput="render()">
+  </div>
+  <div class="count-badge" id="countBadge">184</div>
+  <div class="api-key-wrap">
+    <div class="api-status" id="apiStatus"></div>
+    <span class="api-label">Gemini Key</span>
+    <input type="password" id="apiKeyInput" placeholder="AIza…" oninput="saveApiKey(this.value)" autocomplete="off">
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="sidebar"></aside>
+  <main>
+    <div class="grid" id="grid"></div>
+    <div class="no-results" id="noResults" style="display:none">
+      <div class="icon">🔍</div>
+      <div>No agents match your search.</div>
+    </div>
+  </main>
+</div>
+
+<!-- Detail Panel -->
+<div class="panel-overlay" id="overlay" onclick="closePanel()"></div>
+<div class="panel" id="panel">
+  <div class="panel-header" style="position:relative">
+    <button class="panel-close" onclick="closePanel()">✕</button>
+    <div class="panel-emoji" id="pEmoji"></div>
+    <div class="panel-name" id="pName"></div>
+    <div class="panel-cat" id="pCat"></div>
+    <div class="panel-vibe" id="pVibe"></div>
+  </div>
+  <div class="panel-body">
+    <div class="panel-desc-label">About</div>
+    <div class="panel-desc" id="pDesc"></div>
+    <div class="assign-section">
+      <div class="assign-label">Assign a Task <span>Claude Code</span></div>
+      <textarea id="taskInput" placeholder="Describe the task for this agent…"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="copyPrompt()">Copy Prompt</button>
+        <button class="btn btn-secondary" onclick="saveTask()">Save Task</button>
+      </div>
+      <div class="copied-msg" id="copiedMsg">✓ Prompt copied to clipboard!</div>
+    </div>
+    <div class="task-list" id="taskList"></div>
+  </div>
+</div>
+
+<script>
+const AGENTS = [
+  {name:'Anthropologist',desc:'Expert in cultural systems, rituals, kinship, belief systems, and ethnographic method — builds culturally coherent societies that feel lived-in rather than invented',emoji:'🌍',color:'#D97706',vibe:'No culture is random — every practice is a solution to a problem you might not see yet',category:'academic'},
+  {name:'Geographer',desc:'Expert in physical and human geography, climate systems, cartography, and spatial analysis — builds geographically coherent worlds where terrain, climate, resources, and settlement patterns make scientific sense',emoji:'🗺️',color:'#059669',vibe:'Geography is destiny — where you are determines who you become',category:'academic'},
+  {name:'Historian',desc:'Expert in historical analysis, periodization, material culture, and historiography — validates historical coherence and enriches settings with authentic period detail grounded in primary and secondary sources',emoji:'📚',color:'#B45309',vibe:"History doesn't repeat, but it rhymes — and I know all the verses",category:'academic'},
+  {name:'Narratologist',desc:'Expert in narrative theory, story structure, character arcs, and literary analysis — grounds advice in established frameworks from Propp to Campbell to modern narratology',emoji:'📜',color:'#8B5CF6',vibe:'Every story is an argument — I help you find what yours is really saying',category:'academic'},
+  {name:'Psychologist',desc:'Expert in human behavior, personality theory, motivation, and cognitive patterns — builds psychologically credible characters and interactions grounded in clinical and research frameworks',emoji:'🧠',color:'#EC4899',vibe:"People don't do things for no reason — I find the reason",category:'academic'},
+  {name:'Brand Guardian',desc:'Expert brand strategist and guardian specializing in brand identity development, consistency maintenance, and strategic brand positioning',emoji:'🎨',color:'#3B82F6',vibe:"Your brand's fiercest protector and most passionate advocate.",category:'design'},
+  {name:'Image Prompt Engineer',desc:'Expert photography prompt engineer specializing in crafting detailed, evocative prompts for AI image generation.',emoji:'📷',color:'#F59E0B',vibe:'Translates visual concepts into precise prompts that produce stunning AI photography.',category:'design'},
+  {name:'Inclusive Visuals Specialist',desc:'Representation expert who defeats systemic AI biases to generate culturally accurate, affirming, and non-stereotypical images and video.',emoji:'🌈',color:'#4DB6AC',vibe:'Defeats systemic AI biases to generate culturally accurate, affirming imagery.',category:'design'},
+  {name:'UI Designer',desc:'Expert UI designer specializing in visual design systems, component libraries, and pixel-perfect interface creation.',emoji:'🎨',color:'#A855F7',vibe:'Creates beautiful, consistent, accessible interfaces that feel just right.',category:'design'},
+  {name:'UX Architect',desc:'Technical architecture and UX specialist who provides developers with solid foundations, CSS systems, and clear implementation guidance',emoji:'📐',color:'#A855F7',vibe:'Gives developers solid foundations, CSS systems, and clear implementation paths.',category:'design'},
+  {name:'UX Researcher',desc:'Expert user experience researcher specializing in user behavior analysis, usability testing, and data-driven design insights.',emoji:'🔬',color:'#10B981',vibe:'Validates design decisions with real user data, not assumptions.',category:'design'},
+  {name:'Visual Storyteller',desc:'Expert visual communication specialist focused on creating compelling visual narratives, multimedia content, and brand storytelling through design.',emoji:'🎬',color:'#A855F7',vibe:'Transforms complex information into visual narratives that move people.',category:'design'},
+  {name:'Whimsy Injector',desc:'Expert creative specialist focused on adding personality, delight, and playful elements to brand experiences.',emoji:'✨',color:'#EC4899',vibe:'Adds the unexpected moments of delight that make brands unforgettable.',category:'design'},
+  {name:'AI Data Remediation Engineer',desc:'Specialist in self-healing data pipelines — uses air-gapped local SLMs and semantic clustering to automatically detect, classify, and fix data anomalies at scale.',emoji:'🧬',color:'#10B981',vibe:'Fixes your broken data with surgical AI precision — no rows left behind.',category:'engineering'},
+  {name:'AI Engineer',desc:'Expert AI/ML engineer specializing in machine learning model development, deployment, and integration into production systems.',emoji:'🤖',color:'#3B82F6',vibe:'Turns ML models into production features that actually scale.',category:'engineering'},
+  {name:'Autonomous Optimization Architect',desc:'Intelligent system governor that continuously shadow-tests APIs for performance while enforcing strict financial and security guardrails.',emoji:'⚡',color:'#673AB7',vibe:"The system governor that makes things faster without bankrupting you.",category:'engineering'},
+  {name:'Backend Architect',desc:'Senior backend architect specializing in scalable system design, database architecture, API development, and cloud infrastructure.',emoji:'🏗️',color:'#3B82F6',vibe:'Designs the systems that hold everything up — databases, APIs, cloud, scale.',category:'engineering'},
+  {name:'CMS Developer',desc:'Drupal and WordPress specialist for theme development, custom plugins/modules, content architecture, and code-first CMS implementation',emoji:'🧱',color:'#3B82F6',vibe:'Builds and extends CMS platforms with clean, maintainable code.',category:'engineering'},
+  {name:'Code Reviewer',desc:'Expert code reviewer who provides constructive, actionable feedback focused on correctness, maintainability, security, and performance.',emoji:'👁️',color:'#A855F7',vibe:'Reviews code like a mentor, not a gatekeeper. Every comment teaches something.',category:'engineering'},
+  {name:'Codebase Onboarding Engineer',desc:'Expert developer onboarding specialist who helps new engineers understand unfamiliar codebases fast.',emoji:'🧭',color:'#14B8A6',vibe:'Gets new developers productive faster by reading the code, tracing the paths, and stating the facts.',category:'engineering'},
+  {name:'Data Engineer',desc:'Expert data engineer specializing in building reliable data pipelines, lakehouse architectures, and scalable data infrastructure.',emoji:'🔧',color:'#F97316',vibe:'Builds the pipelines that turn raw data into trusted, analytics-ready assets.',category:'engineering'},
+  {name:'Database Optimizer',desc:'Expert database specialist focusing on schema design, query optimization, indexing strategies, and performance tuning.',emoji:'🗄️',color:'#F59E0B',vibe:"Indexes, query plans, and schema design — databases that don't wake you at 3am.",category:'engineering'},
+  {name:'DevOps Automator',desc:'Expert DevOps engineer specializing in infrastructure automation, CI/CD pipeline development, and cloud operations',emoji:'⚙️',color:'#F97316',vibe:'Automates infrastructure so your team ships faster and sleeps better.',category:'engineering'},
+  {name:'Email Intelligence Engineer',desc:'Expert in extracting structured, reasoning-ready data from raw email threads for AI agents and automation systems',emoji:'📧',color:'#6366F1',vibe:'Turns messy MIME into reasoning-ready context — your agent deserves signal, not noise.',category:'engineering'},
+  {name:'Embedded Firmware Engineer',desc:'Specialist in bare-metal and RTOS firmware — ESP32, PlatformIO, Arduino, ARM Cortex-M, STM32, Nordic nRF5, FreeRTOS, Zephyr',emoji:'🔩',color:'#F97316',vibe:"Writes production-grade firmware for hardware that can't afford to crash.",category:'engineering'},
+  {name:'Frontend Developer',desc:'Expert frontend developer specializing in modern web technologies, React/Vue/Angular frameworks, UI implementation, and performance optimization',emoji:'🖥️',color:'#06B6D4',vibe:'Builds responsive, accessible web apps with pixel-perfect precision.',category:'engineering'},
+  {name:'Git Workflow Master',desc:'Expert in Git workflows, branching strategies, and version control best practices including conventional commits, rebasing, and worktrees.',emoji:'🌿',color:'#F97316',vibe:'Clean history, atomic commits, and branches that tell a story.',category:'engineering'},
+  {name:'Incident Response Commander',desc:'Expert incident commander specializing in production incident management, structured response coordination, and post-mortem facilitation.',emoji:'🚨',color:'#E63946',vibe:'Turns production chaos into structured resolution.',category:'engineering'},
+  {name:'Minimal Change Engineer',desc:'Engineering specialist focused on minimum-viable diffs — fixes only what was asked, refuses scope creep.',emoji:'🪡',color:'#64748B',vibe:'The smallest diff that solves the problem — every extra line is a liability.',category:'engineering'},
+  {name:'Mobile App Builder',desc:'Specialized mobile application developer with expertise in native iOS/Android development and cross-platform frameworks',emoji:'📲',color:'#A855F7',vibe:'Ships native-quality apps on iOS and Android, fast.',category:'engineering'},
+  {name:'Rapid Prototyper',desc:'Specialized in ultra-fast proof-of-concept development and MVP creation using efficient tools and frameworks',emoji:'⚡',color:'#10B981',vibe:"Turns an idea into a working prototype before the meeting's over.",category:'engineering'},
+  {name:'Security Engineer',desc:'Expert application security engineer specializing in threat modeling, vulnerability assessment, secure code review, and security architecture design.',emoji:'🔒',color:'#EF4444',vibe:'Models threats, reviews code, hunts vulnerabilities, and designs security architecture that holds under adversarial pressure.',category:'engineering'},
+  {name:'Senior Developer',desc:'Premium implementation specialist — Masters Laravel/Livewire/FluxUI, advanced CSS, Three.js integration',emoji:'💎',color:'#10B981',vibe:'Premium full-stack craftsperson — Laravel, Livewire, Three.js, advanced CSS.',category:'engineering'},
+  {name:'Software Architect',desc:'Expert software architect specializing in system design, domain-driven design, architectural patterns, and technical decision-making.',emoji:'🏛️',color:'#6366F1',vibe:'Designs systems that survive the team that built them. Every decision has a trade-off — name it.',category:'engineering'},
+  {name:'SRE',desc:'Expert site reliability engineer specializing in SLOs, error budgets, observability, chaos engineering, and toil reduction.',emoji:'🛡️',color:'#E63946',vibe:'Reliability is a feature. Error budgets fund velocity — spend them wisely.',category:'engineering'},
+  {name:'Technical Writer',desc:'Expert technical writer specializing in developer documentation, API references, README files, and tutorials.',emoji:'📚',color:'#14B8A6',vibe:'Writes the docs that developers actually read and use.',category:'engineering'},
+  {name:'Threat Detection Engineer',desc:'Expert detection engineer specializing in SIEM rule development, MITRE ATT&CK coverage mapping, threat hunting, and alert tuning.',emoji:'🎯',color:'#7B2D8E',vibe:'Builds the detection layer that catches attackers after they bypass prevention.',category:'engineering'},
+  {name:'Bookkeeper & Controller',desc:'Expert bookkeeper and controller specializing in day-to-day accounting operations, financial reconciliations, and month-end close processes.',emoji:'📒',color:'#10B981',vibe:'Every penny accounted for, every close on time — the backbone of financial trust.',category:'finance'},
+  {name:'Financial Analyst',desc:'Expert financial analyst specializing in financial modeling, forecasting, scenario analysis, and data-driven decision support.',emoji:'📊',color:'#10B981',vibe:'Turns spreadsheets into strategy — every number tells a story, every model drives a decision.',category:'finance'},
+  {name:'FP&A Analyst',desc:'Expert Financial Planning & Analysis analyst specializing in budgeting, variance analysis, financial planning, and rolling forecasts.',emoji:'📈',color:'#10B981',vibe:'The budget whisperer — turns plans into numbers and numbers into action.',category:'finance'},
+  {name:'Investment Researcher',desc:'Expert investment researcher specializing in market research, due diligence, portfolio analysis, and asset valuation.',emoji:'🔍',color:'#10B981',vibe:'Digs deeper than the consensus — finds alpha in the footnotes and risks in the narratives.',category:'finance'},
+  {name:'Tax Strategist',desc:'Expert tax strategist specializing in tax optimization, multi-jurisdictional compliance, transfer pricing, and strategic tax planning.',emoji:'🏛️',color:'#10B981',vibe:'Finds every legal dollar of savings in the tax code — compliance is the floor, optimization is the mission.',category:'finance'},
+  {name:'Game Audio Engineer',desc:'Interactive audio specialist — Masters FMOD/Wwise integration, adaptive music systems, spatial audio, and audio performance budgeting.',emoji:'🎵',color:'#6366F1',vibe:'Makes every gunshot, footstep, and musical cue feel alive in the game world.',category:'game-development'},
+  {name:'Game Designer',desc:'Systems and mechanics architect — Masters GDD authorship, player psychology, economy balancing, and gameplay loop design.',emoji:'🎮',color:'#EAB308',vibe:'Thinks in loops, levers, and player motivations to architect compelling gameplay.',category:'game-development'},
+  {name:'Level Designer',desc:'Spatial storytelling and flow specialist — Masters layout theory, pacing architecture, encounter design, and environmental narrative.',emoji:'🗺️',color:'#14B8A6',vibe:'Treats every level as an authored experience where space tells the story.',category:'game-development'},
+  {name:'Narrative Designer',desc:'Story systems and dialogue architect — Masters GDD-aligned narrative design, branching dialogue, lore architecture, and environmental storytelling.',emoji:'📖',color:'#EF4444',vibe:'Architects story systems where narrative and gameplay are inseparable.',category:'game-development'},
+  {name:'Technical Artist',desc:'Art-to-engine pipeline specialist — Masters shaders, VFX systems, LOD pipelines, performance budgeting, and cross-engine asset optimization.',emoji:'🎨',color:'#EC4899',vibe:'The bridge between artistic vision and engine reality.',category:'game-development'},
+  {name:'Unity Architect',desc:'Data-driven modularity specialist — Masters ScriptableObjects, decoupled systems, and single-responsibility component design for scalable Unity projects.',emoji:'🏛️',color:'#3B82F6',vibe:'Designs data-driven, decoupled Unity systems that scale without spaghetti.',category:'game-development'},
+  {name:'Unreal Systems Engineer',desc:'Performance and hybrid architecture specialist — Masters C++/Blueprint continuum, Nanite geometry, Lumen GI, and Gameplay Ability System.',emoji:'⚙️',color:'#F97316',vibe:'Masters the C++/Blueprint continuum for AAA-grade Unreal Engine projects.',category:'game-development'},
+  {name:'Godot Gameplay Scripter',desc:'Composition and signal integrity specialist — Masters GDScript 2.0, C# integration, and node-based architecture for Godot 4 projects.',emoji:'🎯',color:'#A855F7',vibe:'Builds Godot 4 gameplay systems with the discipline of a software architect.',category:'game-development'},
+  {name:'Agentic Search Optimizer',desc:'Expert in WebMCP readiness and agentic task completion — audits whether AI agents can actually accomplish tasks on your site.',emoji:'🤖',color:'#0891B2',vibe:"While everyone else is optimizing to get cited by AI, this agent makes sure AI can actually do the thing on your site",category:'marketing'},
+  {name:'AI Citation Strategist',desc:'Expert in AI recommendation engine optimization — audits brand visibility across ChatGPT, Claude, Gemini, and Perplexity.',emoji:'🔮',color:'#6D28D9',vibe:'Figures out why the AI recommends your competitor and rewires the signals so it recommends you instead',category:'marketing'},
+  {name:'App Store Optimizer',desc:'Expert app store marketing specialist focused on ASO, conversion rate optimization, and app discoverability.',emoji:'📱',color:'#3B82F6',vibe:'Gets your app found, downloaded, and loved in the store.',category:'marketing'},
+  {name:'Content Creator',desc:'Expert content strategist and creator for multi-platform campaigns. Develops editorial calendars, creates compelling copy, and manages brand storytelling.',emoji:'✍️',color:'#14B8A6',vibe:'Crafts compelling stories across every platform your audience lives on.',category:'marketing'},
+  {name:'Growth Hacker',desc:'Expert growth strategist specializing in rapid user acquisition through data-driven experimentation. Develops viral loops and optimizes conversion funnels.',emoji:'🚀',color:'#10B981',vibe:"Finds the growth channel nobody's exploited yet — then scales it.",category:'marketing'},
+  {name:'Instagram Curator',desc:'Expert Instagram marketing specialist focused on visual storytelling, community building, and multi-format content optimization.',emoji:'📸',color:'#E4405F',vibe:'Masters the grid aesthetic and turns scrollers into an engaged community.',category:'marketing'},
+  {name:'LinkedIn Content Creator',desc:"Expert LinkedIn content strategist focused on thought leadership, personal brand building, and high-engagement professional content.",emoji:'💼',color:'#0A66C2',vibe:'Turns professional expertise into scroll-stopping content that makes the right people find you.',category:'marketing'},
+  {name:'Reddit Community Builder',desc:'Expert Reddit marketing specialist focused on authentic community engagement, value-driven content creation, and long-term relationship building.',emoji:'💬',color:'#FF4500',vibe:'Speaks fluent Reddit and builds community trust the authentic way.',category:'marketing'},
+  {name:'SEO Specialist',desc:'Expert search engine optimization strategist specializing in technical SEO, content optimization, link authority building, and organic search growth.',emoji:'🔍',color:'#4285F4',vibe:'Drives sustainable organic traffic through technical SEO and content strategy.',category:'marketing'},
+  {name:'Social Media Strategist',desc:'Expert social media strategist for LinkedIn, Twitter, and professional platforms. Creates cross-platform campaigns and builds communities.',emoji:'📣',color:'#3B82F6',vibe:'Orchestrates cross-platform campaigns that build community and drive engagement.',category:'marketing'},
+  {name:'TikTok Strategist',desc:'Expert TikTok marketing specialist focused on viral content creation, algorithm optimization, and community building.',emoji:'🎵',color:'#000000',vibe:"Rides the algorithm and builds community through authentic TikTok culture.",category:'marketing'},
+  {name:'Twitter Engager',desc:'Expert Twitter marketing specialist focused on real-time engagement, thought leadership building, and community-driven growth.',emoji:'🐦',color:'#1DA1F2',vibe:'Builds thought leadership and brand authority 280 characters at a time.',category:'marketing'},
+  {name:'Video Optimization Specialist',desc:'Video marketing strategist specializing in YouTube algorithm optimization, audience retention, chaptering, thumbnail concepts, and cross-platform video syndication.',emoji:'🎬',color:'#EF4444',vibe:'Energetic, data-driven, strategic, and hyper-focused on audience retention',category:'marketing'},
+  {name:'Paid Media Auditor',desc:'Comprehensive paid media auditor who systematically evaluates Google Ads, Microsoft Ads, and Meta accounts across 200+ checkpoints.',emoji:'📋',color:'#F97316',vibe:'Finds the waste in your ad spend before your CFO does.',category:'paid-media'},
+  {name:'Ad Creative Strategist',desc:'Paid media creative specialist focused on ad copywriting, RSA optimization, asset group design, and creative testing frameworks.',emoji:'✍️',color:'#F97316',vibe:'Turns ad creative from guesswork into a repeatable science.',category:'paid-media'},
+  {name:'Paid Social Strategist',desc:'Cross-platform paid social advertising specialist covering Meta, LinkedIn, TikTok, Pinterest, X, and Snapchat.',emoji:'📱',color:'#F97316',vibe:'Makes every dollar on Meta, LinkedIn, and TikTok ads work harder.',category:'paid-media'},
+  {name:'PPC Campaign Strategist',desc:'Senior paid media strategist specializing in large-scale search, shopping, and performance max campaign architecture.',emoji:'💰',color:'#F97316',vibe:'Architects PPC campaigns that scale from $10K to $10M+ monthly.',category:'paid-media'},
+  {name:'Search Query Analyst',desc:'Specialist in search term analysis, negative keyword architecture, and query-to-intent mapping.',emoji:'🔍',color:'#F97316',vibe:"Mines search queries to find the gold your competitors are missing.",category:'paid-media'},
+  {name:'Tracking & Measurement Specialist',desc:'Expert in conversion tracking architecture, tag management, and attribution modeling across GTM, GA4, Google Ads, Meta CAPI.',emoji:'📡',color:'#F97316',vibe:"If it's not tracked correctly, it didn't happen.",category:'paid-media'},
+  {name:'Product Manager',desc:'Holistic product leader who owns the full product lifecycle — from discovery and strategy through roadmap, stakeholder alignment, and outcome measurement.',emoji:'🧭',color:'#3B82F6',vibe:"Ships the right thing, not just the next thing — outcome-obsessed, user-grounded, and diplomatically ruthless about focus.",category:'product'},
+  {name:'Sprint Prioritizer',desc:'Expert product manager specializing in agile sprint planning, feature prioritization, and resource allocation.',emoji:'🎯',color:'#10B981',vibe:'Maximizes sprint value through data-driven prioritization and ruthless focus.',category:'product'},
+  {name:'Feedback Synthesizer',desc:'Expert in collecting, analyzing, and synthesizing user feedback from multiple channels to extract actionable product insights.',emoji:'🔍',color:'#3B82F6',vibe:'Distills a thousand user voices into the five things you need to build next.',category:'product'},
+  {name:'Trend Researcher',desc:'Expert market intelligence analyst specializing in identifying emerging trends, competitive analysis, and opportunity assessment.',emoji:'🔭',color:'#A855F7',vibe:'Spots emerging trends before they hit the mainstream.',category:'product'},
+  {name:'Project Shepherd',desc:'Expert project manager specializing in cross-functional project coordination, timeline management, and stakeholder alignment.',emoji:'🐑',color:'#3B82F6',vibe:'Herds cross-functional chaos into on-time, on-scope delivery.',category:'project-management'},
+  {name:'Senior Project Manager',desc:'Converts specs to tasks and remembers previous projects. Focused on realistic scope and exact spec requirements.',emoji:'📝',color:'#3B82F6',vibe:'Converts specs to tasks with realistic scope — no gold-plating, no fantasy.',category:'project-management'},
+  {name:'Jira Workflow Steward',desc:'Expert delivery operations specialist who enforces Jira-linked Git workflows, traceable commits, and structured pull requests.',emoji:'📋',color:'#F97316',vibe:'Enforces traceable commits, structured PRs, and release-safe branch strategy.',category:'project-management'},
+  {name:'Studio Producer',desc:'Senior strategic leader specializing in high-level creative and technical project orchestration and resource allocation.',emoji:'🎬',color:'#EAB308',vibe:'Aligns creative vision with business objectives across complex initiatives.',category:'project-management'},
+  {name:'Account Strategist',desc:'Expert post-sale account strategist specializing in land-and-expand execution, stakeholder mapping, and QBR facilitation.',emoji:'🗺️',color:'#2E7D32',vibe:'Maps the org, finds the whitespace, and turns customers into platforms.',category:'sales'},
+  {name:'Sales Coach',desc:'Expert sales coaching specialist focused on rep development, pipeline review facilitation, call coaching, and deal strategy.',emoji:'🏋️',color:'#E65100',vibe:'Asks the question that makes the rep rethink the entire deal.',category:'sales'},
+  {name:'Deal Strategist',desc:'Senior deal strategist specializing in MEDDPICC qualification, competitive positioning, and win planning for complex B2B sales cycles.',emoji:'♟️',color:'#1B4D3E',vibe:'Qualifies deals like a surgeon and kills happy ears on contact.',category:'sales'},
+  {name:'Discovery Coach',desc:'Coaches sales teams on elite discovery methodology — question design, current-state mapping, gap quantification, and call structure.',emoji:'🔍',color:'#5C7CFA',vibe:'Asks one more question than everyone else — and that\'s the one that closes the deal.',category:'sales'},
+  {name:'Outbound Strategist',desc:'Signal-based outbound specialist who designs multi-channel prospecting sequences and builds pipeline through research-driven personalization.',emoji:'🎯',color:'#E8590C',vibe:'Turns buying signals into booked meetings before the competition even notices.',category:'sales'},
+  {name:'Pipeline Analyst',desc:'Revenue operations analyst specializing in pipeline health diagnostics, deal velocity analysis, and forecast accuracy.',emoji:'📊',color:'#059669',vibe:'Tells you your forecast is wrong before you realize it yourself.',category:'sales'},
+  {name:'Proposal Strategist',desc:'Strategic proposal architect who transforms RFPs and sales opportunities into compelling win narratives.',emoji:'🏹',color:'#2563EB',vibe:"Turns RFP responses into stories buyers can't put down.",category:'sales'},
+  {name:'Sales Engineer',desc:'Senior pre-sales engineer specializing in technical discovery, demo engineering, POC scoping, and competitive battlecards.',emoji:'🛠️',color:'#2E5090',vibe:'Wins the technical decision before the deal even hits procurement.',category:'sales'},
+  {name:'visionOS Spatial Engineer',desc:'Native visionOS spatial computing, SwiftUI volumetric interfaces, and Liquid Glass design implementation',emoji:'🥽',color:'#6366F1',vibe:'Builds native volumetric interfaces and Liquid Glass experiences for visionOS.',category:'spatial-computing'},
+  {name:'XR Immersive Developer',desc:'Expert WebXR and immersive technology developer with specialization in browser-based AR/VR/XR applications',emoji:'🌐',color:'#06B6D4',vibe:'Builds browser-based AR/VR/XR experiences that push WebXR to its limits.',category:'spatial-computing'},
+  {name:'XR Interface Architect',desc:'Spatial interaction designer and interface strategist for immersive AR/VR/XR environments',emoji:'🫧',color:'#22C55E',vibe:'Designs spatial interfaces where interaction feels like instinct, not instruction.',category:'spatial-computing'},
+  {name:'Agents Orchestrator',desc:'Autonomous pipeline manager that orchestrates the entire development workflow. The leader of the process.',emoji:'🎛️',color:'#06B6D4',vibe:'The conductor who runs the entire dev pipeline from spec to ship.',category:'specialized'},
+  {name:'Chief of Staff',desc:'Master coordinator for founders and executives — filters noise, owns processes, enforces consistency, routes decisions.',emoji:'🧭',color:'#6B7280',vibe:'"I don\'t own any function. I own the space between all of them."',category:'specialized'},
+  {name:'Compliance Auditor',desc:'Expert technical compliance auditor specializing in SOC 2, ISO 27001, HIPAA, and PCI-DSS audits.',emoji:'📋',color:'#F97316',vibe:'Walks you from readiness assessment through evidence collection to SOC 2 certification.',category:'specialized'},
+  {name:'Customer Service',desc:'Friendly, professional customer service specialist for any industry — handling inquiries, complaints, account support, and FAQs.',emoji:'🎧',color:'#14B8A6',vibe:'Every customer interaction is a chance to turn a problem into loyalty.',category:'specialized'},
+  {name:'Developer Advocate',desc:'Expert developer advocate specializing in building developer communities, creating compelling technical content, and driving platform adoption.',emoji:'🗣️',color:'#A855F7',vibe:'Bridges your product team and the developer community through authentic engagement.',category:'specialized'},
+  {name:'Document Generator',desc:'Expert document creation specialist who generates professional PDF, PPTX, DOCX, and XLSX files using code-based approaches.',emoji:'📄',color:'#3B82F6',vibe:'Professional documents from code — PDFs, slides, spreadsheets, and reports.',category:'specialized'},
+  {name:'HR Onboarding',desc:'Comprehensive HR onboarding specialist for employee orientation, documentation management, compliance tracking, and benefits enrollment.',emoji:'🤝',color:'#10B981',vibe:'The first 90 days determine whether a new hire becomes a long-term contributor or a regrettable turnover.',category:'specialized'},
+  {name:'Legal Document Review',desc:'Comprehensive legal document review specialist for contracts, litigation documents, and real estate agreements.',emoji:'⚖️',color:'#3B82F6',vibe:'Every word in a legal document matters. Every missed clause is a liability.',category:'specialized'},
+  {name:'MCP Builder',desc:'Expert Model Context Protocol developer who designs, builds, and tests MCP servers that extend AI agent capabilities.',emoji:'🔌',color:'#6366F1',vibe:'Builds the tools that make AI agents actually useful in the real world.',category:'specialized'},
+  {name:'Recruitment Specialist',desc:'Expert recruitment operations and talent acquisition specialist skilled in hiring platforms, talent assessment frameworks, and labor law compliance.',emoji:'🎯',color:'#3B82F6',vibe:"Builds your full-cycle recruiting engine from sourcing to onboarding to compliance.",category:'specialized'},
+  {name:'Sales Outreach',desc:'Consultative B2B sales outreach specialist for cold prospecting, lead follow-up, objection handling, and pipeline management.',emoji:'🎯',color:'#F59E0B',vibe:"The best salespeople don't sell — they help people buy.",category:'specialized'},
+  {name:'Supply Chain Strategist',desc:'Expert supply chain management and procurement strategy specialist skilled in supplier development, strategic sourcing, and quality control.',emoji:'🔗',color:'#3B82F6',vibe:"Builds your procurement engine and supply chain resilience from supplier sourcing to risk management.",category:'specialized'},
+  {name:'Workflow Architect',desc:'Workflow design specialist who maps complete workflow trees for every system, user journey, and agent interaction.',emoji:'🗺️',color:'#F97316',vibe:'Every path the system can take — mapped, named, and specified before a single line is written.',category:'specialized'},
+  {name:'Analytics Reporter',desc:'Expert data analyst transforming raw data into actionable business insights. Creates dashboards, performs statistical analysis, and tracks KPIs.',emoji:'📊',color:'#14B8A6',vibe:'Transforms raw data into the insights that drive your next decision.',category:'support'},
+  {name:'Executive Summary Generator',desc:'Consultant-grade AI specialist trained to think and communicate like a senior strategy consultant.',emoji:'📝',color:'#A855F7',vibe:'Thinks like a McKinsey consultant, writes for the C-suite.',category:'support'},
+  {name:'Finance Tracker',desc:'Expert financial analyst and controller specializing in financial planning, budget management, and business performance analysis.',emoji:'💰',color:'#10B981',vibe:'Keeps the books clean, the cash flowing, and the forecasts honest.',category:'support'},
+  {name:'Infrastructure Maintainer',desc:'Expert infrastructure specialist focused on system reliability, performance optimization, and technical operations management.',emoji:'🏢',color:'#F97316',vibe:'Keeps the lights on, the servers humming, and the alerts quiet.',category:'support'},
+  {name:'Legal Compliance Checker',desc:'Expert legal and compliance specialist ensuring business operations, data handling, and content creation comply with relevant laws.',emoji:'⚖️',color:'#EF4444',vibe:'Ensures your operations comply with the law across every jurisdiction that matters.',category:'support'},
+  {name:'Support Responder',desc:'Expert customer support specialist delivering exceptional customer service, issue resolution, and user experience optimization.',emoji:'💬',color:'#3B82F6',vibe:'Turns frustrated users into loyal advocates, one interaction at a time.',category:'support'},
+  {name:'Accessibility Auditor',desc:"Expert accessibility specialist who audits interfaces against WCAG standards and tests with assistive technologies.",emoji:'♿',color:'#0077B6',vibe:"If it's not tested with a screen reader, it's not accessible.",category:'testing'},
+  {name:'API Tester',desc:'Expert API testing specialist focused on comprehensive API validation, performance testing, and quality assurance.',emoji:'🔌',color:'#A855F7',vibe:'Breaks your API before your users do.',category:'testing'},
+  {name:'Evidence Collector',desc:'Screenshot-obsessed, fantasy-allergic QA specialist — requires visual proof for everything.',emoji:'📸',color:'#F97316',vibe:"Screenshot-obsessed QA who won't approve anything without visual proof.",category:'testing'},
+  {name:'Performance Benchmarker',desc:'Expert performance testing and optimization specialist focused on measuring, analyzing, and improving system performance.',emoji:'⏱️',color:'#F97316',vibe:'Measures everything, optimizes what matters, and proves the improvement.',category:'testing'},
+  {name:'Reality Checker',desc:'Stops fantasy approvals, evidence-based certification — defaults to "NEEDS WORK", requires overwhelming proof for production readiness.',emoji:'🧐',color:'#EF4444',vibe:'Defaults to "NEEDS WORK" — requires overwhelming proof for production readiness.',category:'testing'},
+  {name:'Test Results Analyzer',desc:'Expert test analysis specialist focused on comprehensive test result evaluation, quality metrics analysis, and actionable insight generation.',emoji:'📋',color:'#6366F1',vibe:'Reads test results like a detective reads evidence — nothing gets past.',category:'testing'},
+  {name:'Tool Evaluator',desc:'Expert technology assessment specialist focused on evaluating, testing, and recommending tools, software, and platforms.',emoji:'🔧',color:'#14B8A6',vibe:"Tests and recommends the right tools so your team doesn't waste time on the wrong ones.",category:'testing'},
+  {name:'Workflow Optimizer',desc:'Expert process improvement specialist focused on analyzing, optimizing, and automating workflows across all business functions.',emoji:'⚡',color:'#10B981',vibe:'Finds the bottleneck, fixes the process, automates the rest.',category:'testing'}
+];
+
+const CAT_COLORS = {
+  'academic':'#D97706','design':'#A855F7','engineering':'#3B82F6','finance':'#10B981',
+  'game-development':'#EAB308','marketing':'#EC4899','paid-media':'#F97316',
+  'product':'#06B6D4','project-management':'#8B5CF6','sales':'#E8590C',
+  'spatial-computing':'#14B8A6','specialized':'#6B7280','strategy':'#EF4444',
+  'support':'#0EA5E9','testing':'#F43F5E'
+};
+
+let activeCategory = 'all';
+let currentAgent = null;
+let tasks = JSON.parse(localStorage.getItem('agentTasks') || '{}');
+
+function getCats() {
+  const cats = {};
+  AGENTS.forEach(a => { cats[a.category] = (cats[a.category]||0)+1; });
+  return cats;
+}
+
+function renderSidebar() {
+  const cats = getCats();
+  const total = AGENTS.length;
+  const sb = document.getElementById('sidebar');
+  let html = `<div class="sidebar-title">Departments</div>`;
+  html += `<button class="filter-btn ${activeCategory==='all'?'active':''}" onclick="setCategory('all')">
+    <span class="cat-dot" style="background:#7c3aed"></span> All Agents
+    <span class="cat-count">${total}</span>
+  </button>`;
+  Object.entries(cats).forEach(([cat, count]) => {
+    const color = CAT_COLORS[cat] || '#888';
+    const label = cat.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    html += `<button class="filter-btn ${activeCategory===cat?'active':''}" onclick="setCategory('${cat}')">
+      <span class="cat-dot" style="background:${color}"></span> ${label}
+      <span class="cat-count">${count}</span>
+    </button>`;
+  });
+  sb.innerHTML = html;
+}
+
+function setCategory(cat) {
+  activeCategory = cat;
+  renderSidebar();
+  render();
+}
+
+function getColor(a) {
+  const c = a.color;
+  if (!c || c === '') return CAT_COLORS[a.category] || '#888';
+  if (c.startsWith('#')) return c;
+  const map = {blue:'#3B82F6',green:'#10B981',red:'#EF4444',purple:'#A855F7',orange:'#F97316',
+    pink:'#EC4899',teal:'#14B8A6',cyan:'#06B6D4',indigo:'#6366F1',amber:'#F59E0B',
+    yellow:'#EAB308',violet:'#7C3AED',gray:'#6B7280',slate:'#64748B',lime:'#84CC16',
+    rose:'#F43F5E',fuchsia:'#D946EF',gold:'#EAB308'};
+  return map[c.toLowerCase()] || CAT_COLORS[a.category] || '#888';
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let filtered = AGENTS.filter(a => {
+    const matchCat = activeCategory === 'all' || a.category === activeCategory;
+    const matchQ = !q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.vibe.toLowerCase().includes(q) || a.category.includes(q);
+    return matchCat && matchQ;
+  });
+
+  document.getElementById('countBadge').textContent = filtered.length;
+  const grid = document.getElementById('grid');
+  const noRes = document.getElementById('noResults');
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    noRes.style.display = 'block';
+    return;
+  }
+  noRes.style.display = 'none';
+
+  grid.innerHTML = filtered.map(a => {
+    const color = getColor(a);
+    const catLabel = a.category.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    const taskCount = (tasks[a.name]||[]).length;
+    return `<div class="card" onclick="openPanel('${a.name.replace(/'/g,"\\'")}')">
+      <div class="accent-bar" style="background:${color}"></div>
+      <span class="card-emoji">${a.emoji||'🤖'}</span>
+      <div class="card-name">${a.name}${taskCount>0?` <span style="background:${color};color:white;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700">${taskCount}</span>`:''}</div>
+      <div class="card-vibe">${a.vibe||a.desc}</div>
+      <div class="card-cat">${catLabel}</div>
+    </div>`;
+  }).join('');
+}
+
+function openPanel(name) {
+  const a = AGENTS.find(x => x.name === name);
+  if (!a) return;
+  currentAgent = a;
+  const color = getColor(a);
+  document.getElementById('pEmoji').textContent = a.emoji || '🤖';
+  document.getElementById('pName').textContent = a.name;
+  document.getElementById('pCat').textContent = a.category.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  document.getElementById('pVibe').textContent = a.vibe || '';
+  document.getElementById('pDesc').textContent = a.desc || '';
+  document.getElementById('taskInput').value = '';
+  document.getElementById('copiedMsg').classList.remove('show');
+  renderTaskList(a.name);
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+  currentAgent = null;
+}
+
+function copyPrompt() {
+  if (!currentAgent) return;
+  const task = document.getElementById('taskInput').value.trim();
+  const prompt = task
+    ? `Activate the ${currentAgent.name} agent.\n\n${task}`
+    : `Activate the ${currentAgent.name} agent.`;
+  navigator.clipboard.writeText(prompt).then(() => {
+    const msg = document.getElementById('copiedMsg');
+    msg.classList.add('show');
+    setTimeout(() => msg.classList.remove('show'), 2500);
+  });
+}
+
+function saveTask() {
+  if (!currentAgent) return;
+  const task = document.getElementById('taskInput').value.trim();
+  if (!task) return;
+  if (!tasks[currentAgent.name]) tasks[currentAgent.name] = [];
+  tasks[currentAgent.name].push(task);
+  localStorage.setItem('agentTasks', JSON.stringify(tasks));
+  document.getElementById('taskInput').value = '';
+  renderTaskList(currentAgent.name);
+  render();
+}
+
+function deleteTask(agentName, idx) {
+  if (!tasks[agentName]) return;
+  tasks[agentName].splice(idx, 1);
+  if (tasks[agentName].length === 0) delete tasks[agentName];
+  localStorage.setItem('agentTasks', JSON.stringify(tasks));
+  renderTaskList(agentName);
+  render();
+}
+
+function renderTaskList(agentName) {
+  const list = document.getElementById('taskList');
+  const agentTasks = tasks[agentName] || [];
+  if (agentTasks.length === 0) { list.innerHTML = ''; return; }
+  const safeAgent = agentName.replace(/'/g,"\\'");
+  list.innerHTML = `<div class="task-list-label">Saved Tasks (${agentTasks.length})</div>` +
+    agentTasks.map((t,i) => `
+      <div class="task-item" id="task-wrap-${i}">
+        <div style="flex:1">
+          <div class="task-text">${t}</div>
+          <div class="task-output" id="task-out-${i}">
+            <div class="output-header">
+              <span class="output-label">✦ Agent Output</span>
+              <button class="output-copy" onclick="copyOutput(${i})" title="Copy output">Copy</button>
+            </div>
+            <div id="task-out-text-${i}"></div>
+          </div>
+        </div>
+        <button class="task-run" id="task-run-${i}" onclick="runTask('${safeAgent}',${i})">▶ Run</button>
+        <button class="task-del" onclick="deleteTask('${safeAgent}',${i})" title="Remove">×</button>
+      </div>`).join('');
+}
+
+function copyOutput(i) {
+  const el = document.getElementById(`task-out-text-${i}`);
+  if (el) navigator.clipboard.writeText(el.textContent);
+}
+
+function saveApiKey(val) {
+  localStorage.setItem('geminiKey', val.trim());
+  document.getElementById('apiStatus').className = 'api-status' + (val.trim() ? ' ok' : '');
+}
+
+async function runTask(agentName, idx) {
+  const key = localStorage.getItem('geminiKey') || '';
+  if (!key) {
+    alert('Please enter your Gemini API key in the top-right corner first.');
+    return;
+  }
+  const agent = AGENTS.find(a => a.name === agentName);
+  if (!agent) return;
+  const taskText = (tasks[agentName] || [])[idx];
+  if (!taskText) return;
+
+  const runBtn = document.getElementById(`task-run-${idx}`);
+  const outBox = document.getElementById(`task-out-${idx}`);
+  const outText = document.getElementById(`task-out-text-${idx}`);
+
+  runBtn.disabled = true;
+  runBtn.textContent = '…';
+  outBox.className = 'task-output visible loading';
+  outText.textContent = 'Running with Gemini Flash…';
+
+  const systemPrompt = `You are ${agent.name}. ${agent.desc}\n\nYour approach: ${agent.vibe}`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ parts: [{ text: taskText }] }]
+        })
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    }
+    const output = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response received.';
+    outBox.className = 'task-output visible';
+    outText.textContent = output;
+  } catch (err) {
+    outBox.className = 'task-output visible error';
+    outText.textContent = `Error: ${err.message}`;
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = '▶ Run';
+  }
+}
+
+// Init
+renderSidebar();
+render();
+
+// Restore API key if saved
+const savedKey = localStorage.getItem('geminiKey') || '';
+if (savedKey) {
+  document.getElementById('apiKeyInput').value = savedKey;
+  document.getElementById('apiStatus').className = 'api-status ok';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+</script>
+</body>
+</html>
