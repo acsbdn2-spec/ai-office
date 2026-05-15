@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    background-color: #0a0f1a;
+    color: #e8edf4;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #101825;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e2d42;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a3f5c;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent hover:bg-accent-hover text-white font-semibold px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
+  }
+  .btn-secondary {
+    @apply bg-card border border-border text-text-primary hover:bg-border font-medium px-4 py-2 rounded-lg transition-colors duration-150 text-sm;
+  }
+  .btn-ghost {
+    @apply text-text-secondary hover:text-text-primary hover:bg-card font-medium px-3 py-2 rounded-lg transition-colors duration-150 text-sm;
+  }
+  .card {
+    @apply bg-card border border-border rounded-xl;
+  }
+  .input {
+    @apply bg-surface border border-border text-text-primary placeholder-text-muted rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-accent transition-colors;
+  }
+  .badge-red {
+    @apply bg-red-500/20 text-red-400 text-xs font-semibold px-2 py-0.5 rounded-full;
+  }
+  .badge-amber {
+    @apply bg-amber-500/20 text-amber-400 text-xs font-semibold px-2 py-0.5 rounded-full;
+  }
+  .badge-green {
+    @apply bg-green-500/20 text-green-400 text-xs font-semibold px-2 py-0.5 rounded-full;
+  }
+  .badge-blue {
+    @apply bg-blue-500/20 text-blue-400 text-xs font-semibold px-2 py-0.5 rounded-full;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface transition-all duration-150 text-sm font-medium cursor-pointer;
+  }
+  .nav-item.active {
+    @apply bg-accent/10 text-accent border border-accent/20;
+  }
+  .price {
+    @apply font-mono;
+  }
+}
+
+.font-mono {
+  font-family: 'DM Mono', Consolas, monospace;
+}
+
+/* Mobile safe area */
+@supports (padding: max(0px)) {
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
