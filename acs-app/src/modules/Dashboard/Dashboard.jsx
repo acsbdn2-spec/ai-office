@@ -5,7 +5,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { usePin } from '../../contexts/PinContext'
 import PinModal from '../../components/UI/PinModal'
 import { supabase } from '../../lib/supabase'
-import { format } from 'date-fns'
+import { useDemoData } from '../../contexts/DemoDataContext'
+import { format, differenceInDays } from 'date-fns'
 
 function ClockWidget() {
   const [time, setTime] = useState(new Date())
@@ -58,10 +59,25 @@ function ClockWidget() {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { profile, canAccess } = useAuth()
+  const { db, isDemo } = useDemoData()
   const [stats, setStats] = useState({ urgent: 0, expiring: 0, openTickets: 0, totalClients: 0 })
 
   useEffect(() => {
     const fetch = async () => {
+      if (isDemo) {
+        const today = new Date()
+        const in30 = new Date(Date.now() + 30 * 86400000)
+        const clients = db.getClients({ notNullExpiry: true })
+        const tickets = db.getTickets({ statuses: ['open', 'in_progress'] })
+        const allClients = db.getClients({})
+        const urgent  = clients.filter(c => c.expiry_date && differenceInDays(new Date(c.expiry_date), today) < 0).length
+        const expiring = clients.filter(c => {
+          const d = differenceInDays(new Date(c.expiry_date), today)
+          return d >= 0 && d <= 30
+        }).length
+        setStats({ urgent, expiring, openTickets: tickets.length, totalClients: allClients.length })
+        return
+      }
       const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
       const today = new Date().toISOString().split('T')[0]
 
@@ -75,7 +91,7 @@ export default function Dashboard() {
       setStats({ urgent: urgentC || 0, expiring: expiringC || 0, openTickets: ticketsC || 0, totalClients: totalC || 0 })
     }
     fetch()
-  }, [])
+  }, [isDemo])
 
   const quickActions = [
     { label: 'Call Mode', icon: Zap, to: '/call', module: 'callmode', color: 'text-accent', desc: 'Start a sales call' },

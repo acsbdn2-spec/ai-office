@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { PinProvider } from './contexts/PinContext'
+import { DemoDataProvider } from './contexts/DemoDataContext'
 import AppLayout from './components/Layout/AppLayout'
 import LoginPage from './modules/Auth/LoginPage'
 import Dashboard from './modules/Dashboard/Dashboard'
@@ -59,7 +60,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <PinProvider>
-          <AppRoutes />
+          <DemoDataProvider>
+            <AppRoutes />
+          </DemoDataProvider>
         </PinProvider>
       </AuthProvider>
     </BrowserRouter>

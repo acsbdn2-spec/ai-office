@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Search, Phone, ChevronRight, Zap, Users, Building2, RefreshCcw } from 'lucide-react'
 import { PRODUCT_CATALOG, RECOMMENDATIONS, BUSINESS_TYPES, formatINR, getProductById } from '../../lib/products'
 import { supabase } from '../../lib/supabase'
+import { useDemoData } from '../../contexts/DemoDataContext'
 import { useNavigate } from 'react-router-dom'
 import { format, differenceInDays } from 'date-fns'
 
@@ -63,6 +64,7 @@ function RecommendationChip({ productId, users = 1, onAdd }) {
 
 export default function CallMode() {
   const navigate = useNavigate()
+  const { db, isDemo } = useDemoData()
   const [search, setSearch] = useState('')
   const [clients, setClients] = useState([])
   const [filtered, setFiltered] = useState([])
@@ -74,6 +76,10 @@ export default function CallMode() {
   const [quoteItems, setQuoteItems] = useState([])
 
   useEffect(() => {
+    if (isDemo) {
+      setClients(db.getClients({ sort: 'name' }))
+      return
+    }
     const fetchClients = async () => {
       setLoading(true)
       const { data } = await supabase.from('clients').select('*').order('name')
@@ -81,7 +87,7 @@ export default function CallMode() {
       setLoading(false)
     }
     fetchClients()
-  }, [])
+  }, [isDemo])
 
   useEffect(() => {
     if (!search.trim()) { setFiltered([]); return }

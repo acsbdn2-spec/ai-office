@@ -1,102 +1,116 @@
 import { useState, useEffect } from 'react'
-import { Plus, MessageSquare, Clock, CheckCircle, AlertTriangle, Search, Send, ChevronDown } from 'lucide-react'
+import { Plus, MessageSquare, Search, Send, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useDemoData } from '../../contexts/DemoDataContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { format, isPast } from 'date-fns'
+import { format } from 'date-fns'
 import Modal from '../../components/UI/Modal'
 
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent']
 const CATEGORIES = ['Technical', 'Billing', 'New requirement', 'General']
-const STATUSES = ['open', 'in_progress', 'pending_client', 'resolved', 'closed']
+const STATUSES   = ['open', 'in_progress', 'pending_client', 'resolved', 'closed']
 const STATUS_LABELS = { open: 'Open', in_progress: 'In Progress', pending_client: 'Pending Client', resolved: 'Resolved', closed: 'Closed' }
 const STATUS_COLORS = { open: 'badge-red', in_progress: 'badge-amber', pending_client: 'badge-blue', resolved: 'badge-green', closed: 'text-text-muted text-xs' }
 const PRIORITY_COLORS = { Low: 'text-text-muted', Medium: 'text-blue-400', High: 'text-amber-400', Urgent: 'text-red-400' }
 
-const EMPTY_TICKET = { title: '', description: '', priority: 'Medium', category: 'Technical', client_id: null }
+const EMPTY_TICKET = { title: '', description: '', priority: 'Medium', category: 'Technical' }
 
 export default function TicketSystem() {
   const { user, isAdmin, profile } = useAuth()
-  const [tickets, setTickets] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const { db, isDemo } = useDemoData()
+  const [tickets, setTickets]         = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [search, setSearch]           = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
-  const [createOpen, setCreateOpen] = useState(false)
+  const [createOpen, setCreateOpen]   = useState(false)
   const [selectedTicket, setSelectedTicket] = useState(null)
-  const [form, setForm] = useState(EMPTY_TICKET)
-  const [comment, setComment] = useState('')
-  const [comments, setComments] = useState([])
-  const [staff, setStaff] = useState([])
-  const [saving, setSaving] = useState(false)
+  const [form, setForm]               = useState(EMPTY_TICKET)
+  const [comment, setComment]         = useState('')
+  const [comments, setComments]       = useState([])
+  const [staff, setStaff]             = useState([])
+  const [saving, setSaving]           = useState(false)
 
-  useEffect(() => { fetchTickets(); fetchStaff() }, [statusFilter])
+  useEffect(() => { fetchTickets(); fetchStaff() }, [statusFilter, isDemo])
 
   const fetchTickets = async () => {
     setLoading(true)
-    let q = supabase.from('tickets').select('*, assigned_profile:profiles!tickets_assigned_to_fkey(full_name), creator_profile:profiles!tickets_created_by_fkey(full_name)')
-    if (statusFilter === 'active') q = q.in('status', ['open', 'in_progress', 'pending_client'])
-    else if (statusFilter !== 'all') q = q.eq('status', statusFilter)
-    if (!isAdmin) q = q.or(`assigned_to.eq.${user?.id},created_by.eq.${user?.id}`)
-    q = q.order('created_at', { ascending: false })
-    const { data } = await q
-    setTickets(data || [])
+    if (isDemo) {
+      const opts = {}
+      if (statusFilter === 'active') opts.statuses = ['open', 'in_progress', 'pending_client']
+      else if (statusFilter !== 'all') opts.statuses = [statusFilter]
+      if (!isAdmin) opts.assignedTo = user?.id
+      setTickets(db.getTickets(opts))
+    } else {
+      let q = supabase.from('tickets').select('*, assigned_profile:profiles!tickets_assigned_to_fkey(full_name), creator_profile:profiles!tickets_created_by_fkey(full_name)')
+      if (statusFilter === 'active') q = q.in('status', ['open', 'in_progress', 'pending_client'])
+      else if (statusFilter !== 'all') q = q.eq('status', statusFilter)
+      if (!isAdmin) q = q.or(`assigned_to.eq.${user?.id},created_by.eq.${user?.id}`)
+      q = q.order('created_at', { ascending: false })
+      const { data } = await q
+      setTickets(data || [])
+    }
     setLoading(false)
   }
 
   const fetchStaff = async () => {
+    if (isDemo) { setStaff(db.getStaff()); return }
     const { data } = await supabase.from('profiles').select('id, full_name, role').eq('is_active', true)
     setStaff(data || [])
   }
 
-  const fetchComments = async (ticketId) => {
-    const { data } = await supabase
-      .from('ticket_comments')
-      .select('*, profiles(full_name)')
-      .eq('ticket_id', ticketId)
-      .order('created_at')
-    setComments(data || [])
+  const fetchComments = (ticketId) => {
+    if (isDemo) { setComments(db.getComments(ticketId)); return }
+    supabase.from('ticket_comments').select('*, profiles(full_name)').eq('ticket_id', ticketId).order('created_at')
+      .then(({ data }) => setComments(data || []))
   }
 
-  const openTicket = (ticket) => {
-    setSelectedTicket(ticket)
-    fetchComments(ticket.id)
-  }
+  const openTicket = (ticket) => { setSelectedTicket(ticket); fetchComments(ticket.id) }
 
   const createTicket = async () => {
     setSaving(true)
-    await supabase.from('tickets').insert({ ...form, created_by: user?.id, status: 'open' })
-    setSaving(false)
-    setCreateOpen(false)
-    setForm(EMPTY_TICKET)
-    fetchTickets()
+    if (isDemo) {
+      db.addTicket({ ...form, created_by: user?.id, status: 'open' })
+      fetchTickets()
+    } else {
+      await supabase.from('tickets').insert({ ...form, created_by: user?.id, status: 'open' })
+      fetchTickets()
+    }
+    setSaving(false); setCreateOpen(false); setForm(EMPTY_TICKET)
   }
 
   const updateStatus = async (ticketId, status) => {
-    await supabase.from('tickets').update({ status, ...(status === 'resolved' ? { resolved_at: new Date().toISOString() } : {}) }).eq('id', ticketId)
+    if (isDemo) db.updateTicket(ticketId, { status, ...(status === 'resolved' ? { resolved_at: new Date().toISOString() } : {}) })
+    else await supabase.from('tickets').update({ status, ...(status === 'resolved' ? { resolved_at: new Date().toISOString() } : {}) }).eq('id', ticketId)
     setSelectedTicket(t => t?.id === ticketId ? { ...t, status } : t)
     fetchTickets()
   }
 
   const assignTicket = async (ticketId, userId) => {
-    await supabase.from('tickets').update({ assigned_to: userId }).eq('id', ticketId)
+    const assignedStaff = staff.find(s => s.id === userId)
+    if (isDemo) db.updateTicket(ticketId, { assigned_to: userId, assigned_profile: assignedStaff ? { full_name: assignedStaff.full_name } : null })
+    else await supabase.from('tickets').update({ assigned_to: userId }).eq('id', ticketId)
     fetchTickets()
   }
 
   const addComment = async () => {
     if (!comment.trim() || !selectedTicket) return
-    await supabase.from('ticket_comments').insert({ ticket_id: selectedTicket.id, user_id: user?.id, comment })
+    if (isDemo) {
+      db.addComment(selectedTicket.id, user?.id, comment, profile?.full_name)
+      setComments(db.getComments(selectedTicket.id))
+    } else {
+      await supabase.from('ticket_comments').insert({ ticket_id: selectedTicket.id, user_id: user?.id, comment })
+      fetchComments(selectedTicket.id)
+    }
     setComment('')
-    fetchComments(selectedTicket.id)
   }
 
   const stats = {
     open: tickets.filter(t => t.status === 'open').length,
     in_progress: tickets.filter(t => t.status === 'in_progress').length,
-    resolved: tickets.filter(t => t.status === 'resolved').length,
+    resolved: tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length,
   }
 
-  const filtered = tickets.filter(t =>
-    !search || t.title?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = tickets.filter(t => !search || t.title?.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div className="min-h-screen bg-bg">
@@ -111,7 +125,6 @@ export default function TicketSystem() {
               <Plus size={13} />New Ticket
             </button>
           </div>
-          {/* Stats */}
           <div className="flex gap-3 mb-3">
             {[['Open', stats.open, 'text-red-400'], ['In Progress', stats.in_progress, 'text-amber-400'], ['Resolved', stats.resolved, 'text-green-400']].map(([l, c, cl]) => (
               <div key={l} className="card px-3 py-2 text-center flex-1">
@@ -136,17 +149,19 @@ export default function TicketSystem() {
 
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-2">
         {loading && <div className="text-center py-12 text-text-muted text-sm">Loading…</div>}
+        {!loading && filtered.length === 0 && <div className="text-center py-12 text-text-muted text-sm">No tickets found.</div>}
         {filtered.map(ticket => (
           <button key={ticket.id} onClick={() => openTicket(ticket)} className="card p-4 w-full text-left hover:border-accent/30 transition-colors">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className={PRIORITY_COLORS[ticket.priority]}><AlertTriangle size={11} /></span>
-                  <span className="text-text-primary text-sm font-medium truncate flex-1">{ticket.title}</span>
+                  <AlertTriangle size={11} className={PRIORITY_COLORS[ticket.priority]} />
+                  <span className="text-text-primary text-sm font-medium flex-1">{ticket.title}</span>
                 </div>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap items-center">
                   <span className={STATUS_COLORS[ticket.status]}>{STATUS_LABELS[ticket.status]}</span>
                   <span className="text-text-muted text-xs">{ticket.category}</span>
+                  {ticket.client_name && <span className="text-text-muted text-xs">· {ticket.client_name}</span>}
                   {ticket.assigned_profile && <span className="text-text-muted text-xs">→ {ticket.assigned_profile.full_name}</span>}
                 </div>
               </div>
@@ -156,30 +171,14 @@ export default function TicketSystem() {
         ))}
       </div>
 
-      {/* Create ticket modal */}
+      {/* Create modal */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="New Ticket" size="md">
         <div className="space-y-3">
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Title *</label>
-            <input className="input" placeholder="Brief issue description" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-          </div>
-          <div>
-            <label className="text-text-muted text-xs mb-1 block">Description</label>
-            <textarea className="input resize-none" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Details about the issue…" />
-          </div>
+          <div><label className="text-text-muted text-xs mb-1 block">Title *</label><input className="input" placeholder="Brief issue description" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
+          <div><label className="text-text-muted text-xs mb-1 block">Description</label><textarea className="input resize-none" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Details…" /></div>
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-text-muted text-xs mb-1 block">Priority</label>
-              <select className="input" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-                {PRIORITIES.map(p => <option key={p}>{p}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-text-muted text-xs mb-1 block">Category</label>
-              <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
+            <div><label className="text-text-muted text-xs mb-1 block">Priority</label><select className="input" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{PRIORITIES.map(p => <option key={p}>{p}</option>)}</select></div>
+            <div><label className="text-text-muted text-xs mb-1 block">Category</label><select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
           </div>
           <div className="flex gap-2 pt-1">
             <button onClick={() => setCreateOpen(false)} className="btn-secondary flex-1">Cancel</button>
@@ -188,26 +187,27 @@ export default function TicketSystem() {
         </div>
       </Modal>
 
-      {/* Ticket detail modal */}
+      {/* Detail modal */}
       <Modal open={!!selectedTicket} onClose={() => setSelectedTicket(null)} title={selectedTicket?.title} size="lg">
         {selectedTicket && (
           <div className="space-y-4">
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
               <span className={STATUS_COLORS[selectedTicket.status]}>{STATUS_LABELS[selectedTicket.status]}</span>
-              <span className={`text-xs ${PRIORITY_COLORS[selectedTicket.priority]}`}>{selectedTicket.priority} priority</span>
+              <span className={`text-xs font-semibold ${PRIORITY_COLORS[selectedTicket.priority]}`}>{selectedTicket.priority}</span>
               <span className="badge-blue">{selectedTicket.category}</span>
+              {selectedTicket.client_name && <span className="text-text-muted text-xs">· {selectedTicket.client_name}</span>}
             </div>
             {selectedTicket.description && <p className="text-text-secondary text-sm">{selectedTicket.description}</p>}
 
-            {/* Status update */}
-            <div className="flex gap-2 flex-wrap">
-              <p className="text-text-muted text-xs self-center">Move to:</p>
+            {/* Status flow */}
+            <div className="flex gap-2 flex-wrap items-center">
+              <p className="text-text-muted text-xs">Move to:</p>
               {STATUSES.filter(s => s !== selectedTicket.status).map(s => (
                 <button key={s} onClick={() => updateStatus(selectedTicket.id, s)} className="btn-secondary text-xs py-1 px-2.5">{STATUS_LABELS[s]}</button>
               ))}
             </div>
 
-            {/* Assign (admin only) */}
+            {/* Assign */}
             {isAdmin && (
               <div>
                 <label className="text-text-muted text-xs mb-1 block">Assign to</label>
@@ -220,13 +220,14 @@ export default function TicketSystem() {
 
             {/* Thread */}
             <div className="border-t border-border pt-3 space-y-2">
-              <p className="text-text-muted text-xs font-medium">Thread</p>
+              <p className="text-text-muted text-xs font-medium uppercase tracking-wide">Thread</p>
+              {comments.length === 0 && <p className="text-text-muted text-xs italic">No comments yet.</p>}
               {comments.map(c => (
                 <div key={c.id} className={`flex gap-2 ${c.user_id === user?.id ? 'flex-row-reverse' : ''}`}>
                   <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${c.user_id === user?.id ? 'bg-accent/15 text-accent' : 'bg-surface text-text-secondary'}`}>
-                    <p className="font-medium text-[10px] mb-0.5 opacity-70">{c.profiles?.full_name || 'Staff'}</p>
+                    <p className="font-semibold text-[10px] mb-0.5 opacity-70">{c.profiles?.full_name}</p>
                     <p>{c.comment}</p>
-                    <p className="text-[10px] opacity-50 mt-0.5">{format(new Date(c.created_at), 'dd MMM HH:mm')}</p>
+                    <p className="text-[10px] opacity-40 mt-0.5">{format(new Date(c.created_at), 'dd MMM HH:mm')}</p>
                   </div>
                 </div>
               ))}

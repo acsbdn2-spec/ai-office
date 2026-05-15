@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit2, Trash2, MessageSquare, ChevronDown, X, Save, Users } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MessageSquare, Save, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { formatINR } from '../../lib/products'
+import { formatINR, BUSINESS_TYPES } from '../../lib/products'
 import { useAuth } from '../../contexts/AuthContext'
+import { useDemoData } from '../../contexts/DemoDataContext'
 import { format } from 'date-fns'
 import Modal from '../../components/UI/Modal'
-import { BUSINESS_TYPES } from '../../lib/products'
 
 const EMPTY = { name: '', phone: '', whatsapp: '', business_type: '', products_used: '', start_date: '', expiry_date: '', amount_ex_gst: '', amount_incl_gst: '', notes: '' }
 
 export default function ClientTracker() {
   const { user, isAdmin } = useAuth()
+  const { db, isDemo } = useDemoData()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -21,39 +22,46 @@ export default function ClientTracker() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
 
-  const fetch = async () => {
+  const loadClients = async () => {
     setLoading(true)
-    const { data } = await supabase.from('clients').select('*').order(sort, { ascending: true })
-    setClients(data || [])
+    if (isDemo) {
+      setClients(db.getClients({ sort }))
+    } else {
+      const { data } = await supabase.from('clients').select('*').order(sort, { ascending: true })
+      setClients(data || [])
+    }
     setLoading(false)
   }
 
-  useEffect(() => { fetch() }, [sort])
+  useEffect(() => { loadClients() }, [sort, isDemo])
 
   const filtered = clients.filter(c =>
     !search || c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search)
   )
 
-  const openAdd = () => { setEditing(null); setForm(EMPTY); setModalOpen(true) }
+  const openAdd  = () => { setEditing(null); setForm(EMPTY); setModalOpen(true) }
   const openEdit = (c) => { setEditing(c); setForm({ ...c }); setModalOpen(true) }
 
   const save = async () => {
     setSaving(true)
-    const payload = { ...form, created_by: user?.id }
-    if (editing) {
-      await supabase.from('clients').update(payload).eq('id', editing.id)
+    if (isDemo) {
+      if (editing) db.updateClient(editing.id, form)
+      else db.addClient({ ...form, created_by: user?.id })
+      loadClients()
     } else {
-      await supabase.from('clients').insert(payload)
+      const payload = { ...form, created_by: user?.id }
+      if (editing) await supabase.from('clients').update(payload).eq('id', editing.id)
+      else await supabase.from('clients').insert(payload)
+      loadClients()
     }
     setSaving(false)
     setModalOpen(false)
-    fetch()
   }
 
   const del = async (id) => {
     if (!confirm('Delete this client?')) return
-    await supabase.from('clients').delete().eq('id', id)
-    setClients(prev => prev.filter(c => c.id !== id))
+    if (isDemo) { db.deleteClient(id); setClients(p => p.filter(c => c.id !== id)) }
+    else { await supabase.from('clients').delete().eq('id', id); loadClients() }
   }
 
   const wa = (client) => {
@@ -69,6 +77,7 @@ export default function ClientTracker() {
             <div className="flex items-center gap-2">
               <Users size={16} className="text-accent" />
               <h1 className="text-lg font-bold text-text-primary">Client Tracker</h1>
+              <span className="badge-blue">{clients.length}</span>
             </div>
             <button onClick={openAdd} className="btn-primary flex items-center gap-1.5">
               <Plus size={14} />Add Client
@@ -92,7 +101,7 @@ export default function ClientTracker() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-2">
-        {loading && <div className="text-center py-12 text-text-muted text-sm">Loading clients…</div>}
+        {loading && <div className="text-center py-12 text-text-muted text-sm">Loading…</div>}
         {!loading && filtered.length === 0 && <div className="text-center py-12 text-text-muted text-sm">No clients found.</div>}
 
         {filtered.map(c => (
@@ -126,7 +135,6 @@ export default function ClientTracker() {
         ))}
       </div>
 
-      {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Client' : 'Add Client'} size="lg">
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -141,16 +149,9 @@ export default function ClientTracker() {
           ].map(({ key, label, required, type, colSpan }) => (
             <div key={key} className={colSpan === 2 ? 'col-span-2' : ''}>
               <label className="text-text-muted text-xs mb-1 block">{label}{required && ' *'}</label>
-              <input
-                type={type || 'text'}
-                className="input"
-                value={form[key] || ''}
-                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                required={required}
-              />
+              <input type={type || 'text'} className="input" value={form[key] || ''} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} required={required} />
             </div>
           ))}
-
           <div className="col-span-2">
             <label className="text-text-muted text-xs mb-1 block">Business Type</label>
             <select className="input" value={form.business_type || ''} onChange={e => setForm(f => ({ ...f, business_type: e.target.value }))}>
@@ -158,9 +159,8 @@ export default function ClientTracker() {
               {BUSINESS_TYPES.map(bt => <option key={bt} value={bt}>{bt}</option>)}
             </select>
           </div>
-
           <div className="col-span-2">
-            <label className="text-text-muted text-xs mb-1 block flex items-center gap-1">Private Notes (visible to admin + creator only)</label>
+            <label className="text-text-muted text-xs mb-1 block">Private Notes (admin + creator only)</label>
             <textarea className="input resize-none" rows={2} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
           </div>
         </div>
