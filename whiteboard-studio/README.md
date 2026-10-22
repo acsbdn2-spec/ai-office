@@ -34,9 +34,33 @@ The scripts in `scripts/bangla/` use the Microsoft Edge neural voice `bn-IN-Tani
 
 If the neural voice is unreachable, the renderer falls back to Google's Bangla voice and then to `espeak-ng`.
 
-Writing tips for natural narration:
-- Write `say` the way you speak, in chalti bhasha: "আজকে আমরা দেখব…", "মনে রাখুন…".
-- Write English terms in Bangla script inside `say` (ডেবিট, লেজার, ভাউচার, এফ ফাইভ) so the voice pronounces them like a Bangla speaker. On-screen text (`heading`, `points`) can keep them in English (Debit, Ledger, F5).
+### Pronunciation
+
+Write `say` the way you'd type it, mixing Bangla and English: `"GSTR-3B-তে ₹1,800 ITC পাবেন।"`. Before the text reaches the voice, `speech.py` rewrites it:
+
+| You write | The voice reads |
+|---|---|
+| `GSTR-3B`, `ITC`, `B2B`, `CMP-08` | জি এস টি আর থ্রি বি, আই টি সি, বি টু বি, সি এম পি জিরো এইট |
+| `₹1,800`, `₹1.5 কোটি`, `₹2.5 লাখ` | এক হাজার আটশো টাকা, দেড় কোটি টাকা, আড়াই লাখ টাকা |
+| `18%`, `350cc`, `100 km` | আঠারো শতাংশ, তিনশো পঞ্চাশ সিসি, একশো কিলোমিটার |
+| `1 July 2017`, `22 September 2025` | পয়লা জুলাই দু হাজার সতেরো, বাইশে সেপ্টেম্বর দু হাজার পঁচিশ |
+| `Bill-এর`, `₹50,000-এর`, `₹5 কোটি+` | বিলের, পঞ্চাশ হাজার টাকার, পাঁচ কোটি টাকার বেশি |
+| `Invoice`, `Ledger`, `Composition` | ইনভয়েস, লেজার, কম্পোজিশন (from `lexicon.json`) |
+
+- Captions show your text as written, so viewers see "GSTR-3B" while the voice says জি এস টি আর থ্রি বি.
+- **Fix a word:** add it to `lexicon.json` (`"Word": "how it should sound"`), or to a script's own `"lexicon": {...}`. The render log lists English words the lexicon doesn't know yet.
+- **Check before rendering:** `python3 render.py my-script.json --speech` prints exactly what the voice will read.
+- **Turn it off:** `"pronounce": false` for a script, or `"raw_say": true` for one scene.
+- With the neural voice, captions follow its sentence timings, so they stay in step with speech.
+
+### Choosing a voice
+
+Run the **Voice samples** Action (Actions tab, then Run workflow). It reads one paragraph with every voice option and commits the MP3s to `videos/voice-samples/`.
+
+**Sarvam AI (optional):** Bulbul voices are built for Indian languages mixed with English. Get an API key at sarvam.ai and add it as a repository secret named `SARVAM_API_KEY` (Settings → Secrets and variables → Actions). Then set `"tts": "sarvam"` in a script, plus optionally `"sarvam_speaker"`.
+
+Writing tips:
+- Write in everyday chalti bhasha: "আজকে আমরা দেখব…", "মনে রাখুন…".
 - Short sentences with commas give the voice natural pauses.
 
 ## Script format

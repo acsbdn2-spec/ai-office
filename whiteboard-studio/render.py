@@ -10,6 +10,7 @@
 See README.md for the script format.
 """
 import argparse
+import base64
 import functools
 import itertools
 import json
@@ -21,11 +22,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.request
 import wave
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import doodles
+import speech
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT_DIR = os.path.join(HERE, "fonts")
@@ -658,22 +661,29 @@ def pen_sprite(color):
     return img, tip
 
 
-def caption_chunks(text, duration):
-    words = text.split()
-    chunks, cur = [], []
-    for wd in words:
-        cur.append(wd)
-        if len(cur) >= 4 or len(" ".join(cur)) > 20 or wd[-1:] in ".,!?;:":
+def caption_chunks(text, duration, marks=None):
+    """Caption pieces of up to 4 words, timed to the voice's sentence marks when the engine gave them."""
+    sentences = [x for x in re.split(r"(?<=[।!?.])\s+", text.strip()) if x]
+    if marks and len(marks) == len(sentences):
+        spans = [(a, b, x) for (a, b), x in zip(marks, sentences)]
+    else:
+        spans = [(0.0, duration, text)]
+    out = []
+    for start, end, sentence in spans:
+        chunks, cur = [], []
+        for wd in sentence.split():
+            cur.append(wd)
+            if len(cur) >= 4 or len(" ".join(cur)) > 20 or wd[-1:] in ".,!?;:।":
+                chunks.append(" ".join(cur))
+                cur = []
+        if cur:
             chunks.append(" ".join(cur))
-            cur = []
-    if cur:
-        chunks.append(" ".join(cur))
-    total = sum(len(c) + 3 for c in chunks) or 1
-    t, out = 0.0, []
-    for c in chunks:
-        dt = duration * (len(c) + 3) / total
-        out.append((t, t + dt, c))
-        t += dt
+        total = sum(len(c) + 3 for c in chunks) or 1
+        t = start
+        for c in chunks:
+            dt = (end - start) * (len(c) + 3) / total
+            out.append((t, t + dt, c))
+            t += dt
     return out
 
 
@@ -718,51 +728,98 @@ def to_pcm(src, tmp):
 NEURAL = re.compile(r"^[a-z]{2,3}-[A-Z]{2}-\w+Neural$")
 
 
+# Each engine writes `out` and returns the sentence timings it knows
+# ([(start, end), ...] in seconds, possibly empty), or None when it failed.
+
 def tts_edge(text, cfg, out):
     """Microsoft Edge neural voices, e.g. bn-IN-TanishaaNeural (needs internet)."""
-    r = subprocess.run([sys.executable, "-m", "edge_tts", "--voice", cfg["voice"], f"--rate={cfg['speed']}",
-                        f"--pitch={cfg['tone']}", "--text", text, "--write-media", out],
-                       capture_output=True, text=True, timeout=120)
-    return r.returncode == 0 and os.path.getsize(out) > 0
+    import asyncio
+    import edge_tts
+
+    async def speak():
+        marks = []
+        comm = edge_tts.Communicate(text, cfg["voice"], rate=cfg["speed"], pitch=cfg["tone"],
+                                    boundary="SentenceBoundary")
+        with open(out, "wb") as f:
+            async for chunk in comm.stream():
+                if chunk["type"] == "audio":
+                    f.write(chunk["data"])
+                elif chunk["type"] == "SentenceBoundary":
+                    marks.append((chunk["offset"] / 1e7, (chunk["offset"] + chunk["duration"]) / 1e7))
+        return marks
+
+    marks = asyncio.run(speak())
+    return marks if os.path.getsize(out) > 0 else None
+
+
+def tts_sarvam(text, cfg, out):
+    """Sarvam AI Bulbul, built for Indian languages mixed with English (needs SARVAM_API_KEY)."""
+    key = os.environ.get("SARVAM_API_KEY")
+    if not key:
+        print("    sarvam: SARVAM_API_KEY is not set", file=sys.stderr)
+        return None
+    body = json.dumps({"text": text, "target_language_code": cfg["sarvam_language"],
+                       "speaker": cfg["sarvam_speaker"], "model": cfg["sarvam_model"],
+                       "pace": cfg["sarvam_pace"]}).encode()
+    req = urllib.request.Request("https://api.sarvam.ai/text-to-speech", data=body,
+                                 headers={"api-subscription-key": key, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        audios = json.load(r)["audios"]
+    with open(out, "wb") as f:
+        f.write(base64.b64decode(audios[0]))
+    return []
 
 
 def tts_gtts(text, cfg, out):
     """Google Translate voice (needs internet)."""
-    try:
-        from gtts import gTTS
-        gTTS(text, lang=cfg["voice"].split("-")[0], tld=cfg.get("gtts_tld", "co.in")).save(out)
-        return True
-    except Exception as e:  # noqa: BLE001 - any failure means "try the next engine"
-        print(f"    gTTS failed: {e}", file=sys.stderr)
-        return False
+    from gtts import gTTS
+    gTTS(text, lang=cfg["voice"].split("-")[0], tld=cfg.get("gtts_tld", "co.in")).save(out)
+    return []
 
 
 def tts_espeak(text, cfg, out):
     voice = cfg["voice"].split("-")[0] if NEURAL.match(cfg["voice"]) else cfg["voice"]
     r = subprocess.run(["espeak-ng", "-v", voice, "-s", str(cfg["rate"]), "-p", str(cfg["pitch"]), "-w", out, text],
                        capture_output=True)
-    return r.returncode == 0
+    return [] if r.returncode == 0 else None
 
 
-ENGINES = {"edge": tts_edge, "gtts": tts_gtts, "espeak": tts_espeak}
+ENGINES = {"edge": tts_edge, "sarvam": tts_sarvam, "gtts": tts_gtts, "espeak": tts_espeak}
+
+
+def spoken_text(scene, cfg):
+    """What the voice actually reads: the scene's say text after the pronunciation rules."""
+    text = scene.get("say", "").strip()
+    if not cfg["pronounce"] or scene.get("raw_say"):
+        return text
+    unknown = set()
+    out = speech.speakable(text, cfg["lexicon"], unknown)
+    for word in sorted(unknown - cfg["reported"]):
+        print(f"    pronunciation: '{word}' is not in lexicon.json, so the voice reads it as written",
+              file=sys.stderr)
+    cfg["reported"] |= unknown
+    return out
 
 
 def narration(scene, cfg, tmp, base_dir):
+    """(pcm bytes, sentence marks) for a scene."""
     if scene.get("audio"):
-        return to_pcm(os.path.join(base_dir, scene["audio"]), tmp)
-    text = scene.get("say", "").strip()
+        return to_pcm(os.path.join(base_dir, scene["audio"]), tmp), None
+    text = spoken_text(scene, cfg)
     if not text or cfg["voice"] == "none" or cfg["tts"] == "none":
-        return b""
+        return b"", None
     order = [cfg["tts"]] + [e for e in ("edge", "gtts", "espeak") if e != cfg["tts"]]
     for engine in order:
         out = os.path.join(tmp, f"tts{random.randrange(10**9)}.{'wav' if engine == 'espeak' else 'mp3'}")
         try:
-            if ENGINES[engine](text, cfg, out):
-                if engine != cfg["tts"]:
-                    print(f"    voice: fell back to {engine}", file=sys.stderr)
-                return to_pcm(out, tmp)
-        except (OSError, subprocess.SubprocessError) as e:
+            marks = ENGINES[engine](text, cfg, out)
+        except Exception as e:  # noqa: BLE001 - network, auth or codec trouble: try the next engine
             print(f"    {engine} failed: {e}", file=sys.stderr)
+            continue
+        if marks is not None:
+            if engine != cfg["tts"]:
+                print(f"    voice: fell back to {engine}", file=sys.stderr)
+            return to_pcm(out, tmp), marks
     sys.exit("No text-to-speech engine worked. Use --no-voice or give each scene an 'audio' file.")
 
 
@@ -776,7 +833,11 @@ def render(script, base_dir, out_path, fmt, preview=False):
     voice = script.get("voice", "en-us+m3")
     cfg = {"voice": voice, "rate": script.get("rate", 160), "pitch": script.get("pitch", 45),
            "speed": script.get("speed", "+0%"), "tone": script.get("tone", "+0Hz"),
-           "tts": script.get("tts") or ("edge" if NEURAL.match(voice) else "espeak")}
+           "tts": script.get("tts") or ("edge" if NEURAL.match(voice) else "espeak"),
+           "sarvam_speaker": script.get("sarvam_speaker", "ritu"), "sarvam_model": script.get("sarvam_model", "bulbul:v3"),
+           "sarvam_language": script.get("sarvam_language", "bn-IN"), "sarvam_pace": script.get("sarvam_pace", 1.0),
+           "pronounce": script.get("pronounce", True), "lexicon": speech.load_lexicon(script.get("lexicon")),
+           "reported": set()}
     brand = script.get("brand")
     captions = script.get("captions", fmt == "short")
     rng = random.Random(script.get("seed", 7))
@@ -818,7 +879,7 @@ def render(script, base_dir, out_path, fmt, preview=False):
             # the thumbnail is the Short's first frames, so it can be picked as the cover
             card = render_cover(cover, brand, w, h, rng)
             card.save(f"{stem}_thumbnail.png")
-            voice = narration(cover, cfg, tmp, base_dir)
+            voice, _ = narration(cover, cfg, tmp, base_dir)
             n = int(max(cover.get("seconds", 1.6), len(voice) / 2 / SR + 0.3) * FPS)
             for f in range(n):
                 z = 1 + 0.08 * max(0.0, 1 - f / 8) ** 2  # quick pop-in
@@ -830,7 +891,7 @@ def render(script, base_dir, out_path, fmt, preview=False):
             prev_frame = card
 
         for si, scene in enumerate(scenes):
-            voice = narration(scene, cfg, tmp, base_dir)
+            voice, marks = narration(scene, cfg, tmp, base_dir)
             spoken = len(voice) / 2 / SR
             if not voice:
                 spoken = len(scene.get("say", "").split()) * 0.4
@@ -854,7 +915,7 @@ def render(script, base_dir, out_path, fmt, preview=False):
                     emit(frame)
                 audio += bytes(tn * spf * 2)
 
-            chunks = caption_chunks(scene.get("say", ""), spoken) if captions else []
+            chunks = caption_chunks(scene.get("say", ""), spoken, marks) if captions else []
             bounds = [0] + list(itertools.accumulate(e.cost for e in els))
             pen_pos, idx = (w * 0.6, h * 1.1), 0
             cur_color = style["ink"]
@@ -931,6 +992,8 @@ def main():
     ap.add_argument("--no-voice", action="store_true", help="silent video (record your own voiceover later)")
     ap.add_argument("--tts", choices=sorted(ENGINES), help="override the voice engine (edge, gtts, espeak)")
     ap.add_argument("--preview", action="store_true", help="write one PNG per scene instead of a video")
+    ap.add_argument("--speech", action="store_true",
+                    help="print what the voice will read for each scene (after pronunciation rules) and stop")
     a = ap.parse_args()
     if a.out and len(a.scripts) > 1:
         ap.error("--out works with one script; use --out-dir for several")
@@ -945,6 +1008,13 @@ def main():
             script["voice"] = "none"
         if a.tts:
             script["tts"] = a.tts
+        if a.speech:
+            cfg = {"pronounce": script.get("pronounce", True), "reported": set(),
+                   "lexicon": speech.load_lexicon(script.get("lexicon"))}
+            print(f"== {path}")
+            for i, scene in enumerate(([script["cover"]] if script.get("cover") else []) + expand_scenes(script)):
+                print(f"[{i}] {spoken_text(scene, cfg)}")
+            continue
         fmt = a.format or script.get("format", "landscape")
         name = os.path.splitext(os.path.basename(path))[0]
         for fm in (["landscape", "short"] if fmt == "both" else [fmt]):

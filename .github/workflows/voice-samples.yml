@@ -1,0 +1,48 @@
+name: Voice samples
+
+# Reads one narration with several voices (whiteboard-studio/voice_samples.py)
+# and commits the MP3s to whiteboard-studio/videos/voice-samples/.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "whiteboard-studio/voice_samples.py"
+
+permissions:
+  contents: write
+
+jobs:
+  samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: whiteboard-studio
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        timeout-minutes: 15
+        run: |
+          for i in 1 2 3; do
+            sudo timeout 240 apt-get update -q && \
+              sudo timeout 300 apt-get install -y -q ffmpeg espeak-ng libraqm0 libfribidi0 libharfbuzz0b && break
+            echo "apt attempt $i failed, retrying"; sleep 10
+          done
+          command -v ffmpeg >/dev/null || { echo "could not install ffmpeg"; exit 1; }
+          pip install -q pillow edge-tts gTTS
+
+      - name: Make samples
+        env:
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
+        run: python voice_samples.py
+
+      - name: Commit samples
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898099+github-actions[bot]@users.noreply.github.com"
+          git add videos/voice-samples
+          git diff --cached --quiet && exit 0
+          git commit -m "Voice samples"
+          for i in 1 2 3; do git pull --rebase -q && git push && exit 0; sleep 5; done
+          exit 1

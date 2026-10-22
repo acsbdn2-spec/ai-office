@@ -63,6 +63,8 @@ jobs:
 
       - name: Render
         if: steps.pick.outputs.files != ''
+        env:
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
         run: python render.py ${{ steps.pick.outputs.files }} --out-dir videos
 
       - name: Commit videos
