@@ -1,0 +1,74 @@
+{
+  "title": "GST Registration Step-by-Step",
+  "format": "short",
+  "style": "scribble",
+  "head_font": "BalooDa2-ExtraBold.ttf",
+  "body_font": "Atma-SemiBold.ttf",
+  "voice": "bn-IN-TanishaaNeural",
+  "brand": {
+    "name": "PROTYASHA TAH",
+    "series": "GST সহজ বাংলায়"
+  },
+  "cover": {
+    "badge": "GST EP 07",
+    "hook": "GST নম্বর পান *ঘরে বসেই!*",
+    "label": "Registration Step-by-Step",
+    "doodle": [
+      "laptop:GST Portal",
+      "check"
+    ],
+    "say": "ঘরে বসেই জিএসটি নম্বর! স্টেপ বাই স্টেপ দেখে নিন।"
+  },
+  "scenes": [
+    {
+      "heading": "কী কী Document লাগবে?",
+      "doodle": "ledger:Documents",
+      "points": [
+        "PAN, Aadhaar আর ছবি",
+        "দোকানের ঠিকানার প্রমাণ",
+        "Bank-এর বিবরণ"
+      ],
+      "say": "প্রথমে ডকুমেন্ট রেডি রাখুন। প্যান কার্ড, আধার কার্ড, ছবি। দোকানের ঠিকানার প্রমাণ, যেমন বিদ্যুতের বিল বা ভাড়ার চুক্তি। আর ব্যাঙ্কের বিবরণ।"
+    },
+    {
+      "heading": "Step 1: Part A",
+      "doodle": "laptop:gst.gov.in",
+      "points": [
+        "PAN, Mobile, Email দিন",
+        "OTP দিলেই TRN নম্বর"
+      ],
+      "say": "স্টেপ ওয়ান, জিএসটি পোর্টালে যান, নিউ রেজিস্ট্রেশন। প্যান, মোবাইল আর ইমেল দিয়ে ও টি পি ভেরিফাই করলেই পাবেন টি আর এন নম্বর।"
+    },
+    {
+      "heading": "Step 2: Part B ফর্ম",
+      "doodle": "ledger:REG-01",
+      "points": [
+        "ব্যবসার বিবরণ দিন, Document Upload",
+        "Aadhaar Authentication করুন"
+      ],
+      "say": "স্টেপ টু, টি আর এন দিয়ে লগইন করে পুরো ফর্মটা ভরুন। ব্যবসার বিবরণ দিন, ডকুমেন্ট আপলোড করুন, আর আধার অথেন্টিকেশন করে নিন।"
+    },
+    {
+      "heading": "Step 3: ARN থেকে GSTIN",
+      "doodle": "check",
+      "points": [
+        "Submit করলে ARN (আবেদন নম্বর)",
+        "সব ঠিক থাকলে সাধারণত 7 কাজের দিনে GSTIN"
+      ],
+      "say": "স্টেপ থ্রি, সাবমিট করলে পাবেন এ আর এন, মানে আবেদন নম্বর। সব ঠিক থাকলে, সাধারণত সাত কাজের দিনের মধ্যে জিএসটি নম্বর চলে আসে।"
+    },
+    {
+      "heading": "ছোট B2B ব্যবসা? আরও দ্রুত",
+      "doodle": "rocket",
+      "points": [
+        "Rule 14A: মাসে ₹2.5 লাখ পর্যন্ত Output Tax",
+        "Aadhaar দিলে ৩ কাজের দিনে Approval"
+      ],
+      "say": "ছোট বি টু বি ব্যবসা হলে আরও দ্রুত। রুল চোদ্দো এ তে, মাসে আড়াই লাখ টাকা পর্যন্ত আউটপুট ট্যাক্স হলে, আধার অথেন্টিকেশন দিলে তিন কাজের দিনের মধ্যে অনুমোদন।"
+    }
+  ],
+  "outro": {
+    "question": "কমেন্টে লিখুন আপনার প্রশ্ন!",
+    "ask": "আর রেজিস্ট্রেশন নিয়ে কোনো প্রশ্ন থাকলে, কমেন্টে লিখুন, উত্তর দেব।"
+  }
+}

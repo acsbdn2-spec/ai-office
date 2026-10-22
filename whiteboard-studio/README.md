@@ -74,6 +74,24 @@ Writing tips for natural narration:
 
 (JSON doesn't allow comments. Remove them when you copy this.)
 
+### Cover thumbnail and ending (Shorts)
+
+```json
+"cover": {
+  "hook": "মাত্র *1% GST* দিয়ে ব্যবসা চালান!",   // *stars* paint those words yellow
+  "label": "Composition Scheme",                // tilted red tag
+  "badge": "GST EP 04",
+  "doodle": ["shop", "percent:1%"],
+  "say": "মাত্র এক শতাংশ জিএসটি দিয়ে ব্যবসা! কীভাবে, দেখুন।"
+},
+"outro": {
+  "question": "কমেন্টে লিখুন: Composition না Regular?",                 // shown on screen
+  "ask": "আর কমেন্টে লিখুন, আপনার ব্যবসার জন্য কম্পোজিশন ভালো, না রেগুলার?"  // spoken
+}
+```
+
+The cover becomes the video's first 1–2 seconds, so it can be picked as the Short's cover frame in the YouTube app. It's also saved as `*_thumbnail.png`. The `outro` adds a closing scene with like, share, comment and subscribe doodles. It asks viewers to like, share and subscribe, then asks your question to get comments.
+
 A scene needs only one of `heading`, `doodle` or `points`. A scene with only a heading becomes a big title card. Each scene lasts as long as its narration, and the drawing finishes just before the narration does.
 
 ### Doodles
@@ -100,12 +118,12 @@ A scene needs only one of `heading`, `doodle` or `points`. A scene with only a h
 | `percent:18%` | Rate badge |
 | `invoice:Tax Invoice` | Bill with GST and ₹ lines |
 | `state:West Bengal` | State outline with its name |
-| `shop`, `factory`, `truck`, `news`, `shield`, `handcuffs` | |
+| `shop`, `factory`, `truck`, `news`, `shield`, `handcuffs`, `share`, `comment` | |
 
 ## Series in this repo
 
 - `scripts/bangla/`: TallyPrime School Accounting extras (golden rules, receivable vs payable, voucher shortcuts).
-- `scripts/gst/`: **GST সহজ বাংলায়**, with EP 01 "GST কী?", the 57th GST Council update (long video + Short), and Shorts on GST 2.0 rates, CGST/SGST/IGST and Input Tax Credit. Facts as of October 2026: re-check rates and notifications before publishing an update.
+- `scripts/gst/`: **GST সহজ বাংলায়**. EP 02–07 are Shorts with hook covers: GST 2.0 rates, GSTR-1 vs 3B, Composition Scheme, Reverse Charge, e-Invoice & e-Way Bill, and Registration. Also EP 01 "GST কী?", the 57th GST Council update (long video + Short), and Shorts on GST 2.0 rates, CGST/SGST/IGST and Input Tax Credit. Facts as of October 2026: re-check rates and notifications before publishing an update.
 
 **General:** `arrow_down` `arrow_right` `bar_chart` `battery` `battery_low` `book` `brain` `calendar` `check` `clock` `coin` `cross` `decline_chart` `exclamation` `gear` `globe` `growth_chart` `heart` `hourglass` `house` `lightbulb` `like` `magnifier` `money` `mountain` `people` `person` `phone` `plant` `question` `rocket` `snowball` `speech` `star` `subscribe` `target` `trophy` `warning`
 

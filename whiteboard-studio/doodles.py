@@ -367,7 +367,8 @@ def equals():
 
 def text(words="₹"):
     """Just words, written big: "text:₹5,000" or "text:Dr = Cr"."""
-    return [T(words, 0.5, 0.5, 0.3, "ink", bold=True, max_w=0.98)]
+    # may spill past its square cell: a lone text doodle has the whole row to itself
+    return [T(words, 0.5, 0.5, 0.3, "ink", bold=True, max_w=1.9)]
 
 
 def label(words="Debit"):
@@ -544,6 +545,17 @@ def shield():
     body = [(0.5, 0.06), (0.86, 0.2), (0.82, 0.56)] + arc(0.5, 0.56, 0.32, 0.38, 0, 90, 8)[1:] + \
         arc(0.5, 0.56, 0.32, 0.38, 90, 180, 8)[1:] + [(0.14, 0.2), (0.5, 0.06)]
     return [S(body, "a2", fill="a2"), S([(0.34, 0.5), (0.46, 0.62), (0.68, 0.38)], "a3", w=1.5)]
+
+
+def share():
+    nodes = [(0.72, 0.22), (0.26, 0.5), (0.72, 0.78)]
+    return [S([nodes[0], nodes[1], nodes[2]], "a2", w=1.2)] + \
+        [S(circle(x, y, 0.13), "a2", fill="a2") for x, y in nodes]
+
+
+def comment():
+    bub = rrect(0.08, 0.14, 0.84, 0.56, 0.12)[:-1] + [(0.34, 0.7), (0.22, 0.9), (0.46, 0.7)]
+    return [S(bub + [bub[0]], "a1", w=1.2)] + [S(circle(x, 0.42, 0.045), "a1", fill="a1") for x in (0.32, 0.5, 0.68)]
 
 
 def news():

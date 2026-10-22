@@ -347,18 +347,53 @@ def regions(w, h, has_head, has_doodle, has_points, captions, brand=False):
 
 # ---------------------------------------------------------- scene build
 
-def build_scene(scene, style, w, h, rng, captions, brand=None):
-    names = scene.get("doodle") or []
-    names = [names] if isinstance(names, str) else names
+def check_doodles(names):
     for n in names:
         if n.split(":")[0] not in doodles.DOODLES:
             sys.exit(f"Unknown doodle '{n}'. Available: {', '.join(sorted(doodles.DOODLES))}")
+
+
+def draw_doodles(names, box, style, rng, add_path, els):
+    """Lay doodles out side by side in box (hi-res x, y, w, h) and append their strokes."""
+    bx, by, bw, bh = box
+    width = style["width"] * SS
+    colors = {k: style[k] for k in ("ink", "a1", "a2", "a3")}
+    n = len(names)
+    horizontal = bw >= bh or n > 1
+    cell = min(bw / n, bh) if horizontal else min(bw, bh / n)
+    for i, name in enumerate(names):
+        if horizontal:
+            cx = bx + (bw - cell * n) / 2 + cell * i
+            cy = by + (bh - cell) / 2
+        else:
+            cx, cy = bx + (bw - cell) / 2, by + (bh - cell) / 2 + cell * i
+        pad = cell * 0.06
+        size = cell - pad * 2
+        scale = max(0.6, min(1.4, (size / SS / 520) ** 0.5))
+        kind, _, arg = name.partition(":")
+        strokes = doodles.DOODLES[kind](arg) if arg else doodles.DOODLES[kind]()
+        for st in strokes:
+            if "text" in st:
+                els.append(doodle_text(st, cx + pad, cy + pad, size, style, colors))
+                continue
+            pts = [(cx + pad + x * size, cy + pad + y * size) for x, y in st["pts"]]
+            add_path(pts, colors[st["role"]], width * scale * st["w"])
+            if st["fill"]:
+                fill_color = tint(colors[st["fill"]], style["bg"], 0.45)
+                zz = hatch(pts, 11 * SS * scale)
+                if len(zz) > 2:
+                    els.append(PathEl(humanize(zz, SS * 0.8, rng), fill_color, width * scale * 0.55, 3.2))
+
+
+def build_scene(scene, style, w, h, rng, captions, brand=None):
+    names = scene.get("doodle") or []
+    names = [names] if isinstance(names, str) else names
+    check_doodles(names)
     head = scene.get("heading", "")
     points = scene.get("points", [])
     reg = regions(w, h, bool(head), len(names), bool(points), captions, bool(brand))
     els = []
     width = style["width"] * SS
-    colors = {k: style[k] for k in ("ink", "a1", "a2", "a3")}
 
     def add_path(pts, color, wid, speed=1.0, wobble=None):
         amp = (style["wobble"] if wobble is None else wobble) * SS
@@ -390,35 +425,8 @@ def build_scene(scene, style, w, h, rng, captions, brand=None):
             add_path([(bx + (bw - widest) / 2, uy), (bx + (bw + widest) / 2, uy - 3 * SS)],
                      style["a1"], width * 0.9, speed=1.6)
 
-    # doodles, side by side
     if names:
-        bx, by, bw, bh = [v * SS for v in reg["doodle"]]
-        n = len(names)
-        horizontal = bw >= bh or n > 1
-        cell = min(bw / n, bh) if horizontal else min(bw, bh / n)
-        for i, name in enumerate(names):
-            if horizontal:
-                cx = bx + (bw - cell * n) / 2 + cell * i
-                cy = by + (bh - cell) / 2
-            else:
-                cx, cy = bx + (bw - cell) / 2, by + (bh - cell) / 2 + cell * i
-            pad = cell * 0.06
-            size = cell - pad * 2
-            scale = max(0.6, min(1.4, (size / SS / 520) ** 0.5))
-            kind, _, arg = name.partition(":")
-            strokes = doodles.DOODLES[kind](arg) if arg else doodles.DOODLES[kind]()
-            for st in strokes:
-                if "text" in st:
-                    els.append(doodle_text(st, cx + pad, cy + pad, size, style, colors))
-                    continue
-                pts = [(cx + pad + x * size, cy + pad + y * size) for x, y in st["pts"]]
-                color = colors[st["role"]]
-                add_path(pts, color, width * scale * st["w"])
-                if st["fill"]:
-                    fill_color = tint(colors[st["fill"]], style["bg"], 0.45)
-                    zz = hatch(pts, 11 * SS * scale)
-                    if len(zz) > 2:
-                        els.append(PathEl(humanize(zz, SS * 0.8, rng), fill_color, width * scale * 0.55, 3.2))
+        draw_doodles(names, [v * SS for v in reg["doodle"]], style, rng, add_path, els)
 
     # bullet points
     if points:
@@ -473,6 +481,151 @@ def doodle_text(st, ox, oy, size, style, colors):
     x = ox + st["x"] * size - (r + l) / 2
     y = oy + st["y"] * size - (b + t) / 2
     return TextEl(txt, fnt, colors[st.get("role", "ink")], x, y)
+
+
+# --------------------------------------------------------- cover / outro
+
+COVER_STYLE = {  # bright chalk on navy, like the channel's thumbnails
+    "bg": (12, 32, 66), "ink": (246, 246, 240), "a1": (255, 92, 72), "a2": (110, 212, 232),
+    "a3": (255, 205, 40), "highlight": None, "width": 9, "wobble": 1.0, "double": False,
+    "head_font": "BalooDa2-ExtraBold.ttf", "body_font": "Atma-SemiBold.ttf",
+    "bar": (5, 16, 36), "bar_text": (246, 246, 240), "badge": (255, 205, 40),
+}
+
+
+def hook_words(text):
+    """Split a hook into (word, highlighted) pairs; *stars* mark the words to paint yellow."""
+    out, hot = [], False
+    for part in re.split(r"(\*)", text):
+        if part == "*":
+            hot = not hot
+            continue
+        out += [(wd, hot) for wd in part.split()]
+    return out
+
+
+def render_cover(cover, brand, w, h, rng):
+    """A click-worthy thumbnail card: big two-colour hook, a doodle, a tilted label and an arrow."""
+    st = dict(COVER_STYLE)
+    board = Board(w, h, st)
+    top_c, bot_c = (18, 46, 92), (6, 18, 42)
+    grad = Image.new("RGB", (1, 256))
+    for i in range(256):
+        grad.putpixel((0, i), tuple(int(a + (b - a) * i / 255) for a, b in zip(top_c, bot_c)))
+    board.hi.paste(grad.resize((w * SS, h * SS)))
+    d = board.draw
+    for x in range(0, w * SS, 64 * SS):
+        d.line([(x, 0), (x, h * SS)], fill=(24, 54, 98), width=SS)
+    for y in range(0, h * SS, 64 * SS):
+        d.line([(0, y), (w * SS, y)], fill=(24, 54, 98), width=SS)
+    if brand:
+        draw_brand(board.hi, {k: v for k, v in brand.items() if k != "badge"}, st, w, h)
+
+    portrait = h > w
+    y = (BAR_H + 50) * SS if portrait else 70 * SS
+    text_x0, text_w = (50 * SS, (w - 100) * SS) if portrait else (60 * SS, int(w * 0.56) * SS)
+    if cover.get("badge"):
+        bf = font("BalooDa2-ExtraBold.ttf", 54 * SS)
+        tw = bf.getlength(cover["badge"])
+        bx = text_x0 + (text_w - tw) / 2 - 30 * SS if portrait else text_x0
+        d.rounded_rectangle((bx, y, bx + tw + 60 * SS, y + 84 * SS), radius=42 * SS, fill=st["a3"])
+        d.text((bx + 30 * SS, y + 46 * SS), cover["badge"], font=bf, fill=st["bg"], anchor="lm")
+        y += 120 * SS
+
+    # hook: biggest size that fits in 4 lines
+    words = hook_words(cover["hook"])
+    max_h = (820 if portrait else 640) * SS
+    for size in range(170, 60, -6):
+        fnt = font("BalooDa2-ExtraBold.ttf", size * SS, cover["hook"])
+        space = fnt.getlength(" ")
+        lines, cur, cur_w = [], [], 0
+        for wd, hot in words:
+            ww = fnt.getlength(wd)
+            if cur and cur_w + space + ww > text_w:
+                lines.append(cur)
+                cur, cur_w = [], 0
+            cur.append((wd, hot, ww))
+            cur_w += (space if len(cur) > 1 else 0) + ww
+        lines.append(cur)
+        lh = size * SS * 1.22
+        if len(lines) <= 4 and len(lines) * lh <= max_h:
+            break
+    stroke = max(4, size * SS // 14)
+    placed = []  # (x, y, word, highlighted)
+    for line in lines:
+        lw = sum(ww for _, _, ww in line) + space * (len(line) - 1)
+        x = text_x0 + ((text_w - lw) / 2 if portrait else 0)
+        for wd, hot, ww in line:
+            placed.append((x, y, wd, hot))
+            x += ww + space
+        y += lh
+    text_bottom = y
+    shadow = Image.new("L", board.hi.size, 0)
+    sd = ImageDraw.Draw(shadow)
+    for x, y, wd, _ in placed:
+        sd.text((x + 8 * SS, y + 10 * SS), wd, font=fnt, fill=170, stroke_width=stroke)
+    board.hi.paste((0, 0, 0), (0, 0), shadow.filter(ImageFilter.GaussianBlur(6 * SS)))
+    for x, y, wd, hot in placed:
+        d.text((x, y), wd, font=fnt, fill=st["a3"] if hot else st["ink"], stroke_width=stroke, stroke_fill=(4, 12, 30))
+
+    # doodle(s)
+    names = cover.get("doodle") or []
+    names = [names] if isinstance(names, str) else names
+    check_doodles(names)
+    if portrait:
+        box = (30 * SS, text_bottom + 10 * SS, (w - 60) * SS, (h - 360) * SS - text_bottom)
+    else:
+        box = (int(w * 0.6) * SS, 120 * SS, int(w * 0.37) * SS, (h - 260) * SS)
+    els = []
+
+    def add_path(pts, color, wid, speed=1.0, wobble=None):
+        els.append(PathEl(humanize(pts, (st["wobble"] if wobble is None else wobble) * SS, rng), color, wid, speed))
+
+    if names:
+        draw_doodles(names, box, st, rng, add_path, els)
+    for el in els:
+        el.advance(board, 1.0)
+
+    # tilted red label
+    if cover.get("label"):
+        lf = font("BalooDa2-ExtraBold.ttf", (64 if portrait else 56) * SS, cover["label"])
+        tw = lf.getlength(cover["label"])
+        tag = Image.new("RGBA", (int(tw + 90 * SS), int(120 * SS)), (0, 0, 0, 0))
+        td = ImageDraw.Draw(tag)
+        td.rounded_rectangle((6 * SS, 6 * SS, tag.width - 6 * SS, tag.height - 6 * SS), radius=24 * SS,
+                             fill=(214, 40, 40), outline=(255, 255, 255), width=5 * SS)
+        td.text((tag.width / 2, tag.height / 2 + 4 * SS), cover["label"], font=lf, fill=(255, 255, 255), anchor="mm")
+        tag = tag.rotate(4, resample=Image.BICUBIC, expand=True)
+        ly = (h - 270) * SS if portrait else (h - 230) * SS
+        lx = (w * SS - tag.width) // 2 if portrait else text_x0
+        board.hi.paste(tag, (int(lx), int(ly - tag.height / 2)), tag)
+        # hand-drawn arrow from the label up to the doodle
+        if names and portrait:
+            ax, ay = lx + tag.width * 0.88, ly - tag.height * 0.45
+            tx, ty = box[0] + box[2] * 0.82, box[1] + box[3] * 0.72
+            curve = [(ax + (tx - ax) * t + 70 * SS * math.sin(math.pi * t), ay + (ty - ay) * t) for t in
+                     [i / 16 for i in range(17)]]
+            arrow = PathEl(humanize(curve, SS, rng), st["a3"], 12 * SS)
+            arrow.advance(board, 1.0)
+            PathEl(doodles.arrow_head(*curve[-3], *curve[-1], 34 * SS), st["a3"], 12 * SS).advance(board, 1.0)
+    board.flush(0, 0, w * SS, h * SS)
+    return board.lo
+
+
+def expand_scenes(script):
+    """The script's scenes plus the like / share / subscribe / comment outro."""
+    scenes = list(script["scenes"])
+    outro = script.get("outro")
+    if outro:
+        points = [outro["question"]] if outro.get("question") else []
+        scenes.append({
+            "heading": outro.get("heading", "ভালো লাগলে Like, Share আর Subscribe!"),
+            "doodle": outro.get("doodle", ["like", "share", "comment", "subscribe"]),
+            "points": points, "bullet": "arrow",
+            "say": outro.get("say", "ভিডিওটা কাজে লাগলে লাইক করুন, বন্ধুদের সাথে শেয়ার করুন, "
+                                    "আর চ্যানেলটা সাবস্ক্রাইব করে রাখুন। " + outro.get("ask", "")),
+        })
+    return scenes
 
 
 # ------------------------------------------------------------- sprites
@@ -631,8 +784,13 @@ def render(script, base_dir, out_path, fmt, preview=False):
     stem = os.path.splitext(out_path)[0]
 
     try:
+        scenes = expand_scenes(script)
+        cover = script.get("cover")
         if preview:
-            for i, scene in enumerate(script["scenes"]):
+            if cover:
+                render_cover(cover, brand, w, h, rng).save(f"{stem}_thumbnail.png")
+                print("wrote", f"{stem}_thumbnail.png")
+            for i, scene in enumerate(scenes):
                 board = Board(w, h, style, brand)
                 for el in build_scene(scene, style, w, h, rng, captions, brand):
                     el.advance(board, 1.0)
@@ -648,7 +806,7 @@ def render(script, base_dir, out_path, fmt, preview=False):
         audio = bytearray()
         spf = SR // FPS  # samples per frame
         prev_frame = None
-        thumb_scene = next((i for i, s in enumerate(script["scenes"]) if s.get("thumbnail")), 0)
+        thumb_scene = -1 if cover else next((i for i, s in enumerate(scenes) if s.get("thumbnail")), 0)
         n_frames = 0
 
         def emit(img):
@@ -656,7 +814,22 @@ def render(script, base_dir, out_path, fmt, preview=False):
             ff.stdin.write(img.tobytes())
             n_frames += 1
 
-        for si, scene in enumerate(script["scenes"]):
+        if cover:
+            # the thumbnail is the Short's first frames, so it can be picked as the cover
+            card = render_cover(cover, brand, w, h, rng)
+            card.save(f"{stem}_thumbnail.png")
+            voice = narration(cover, cfg, tmp, base_dir)
+            n = int(max(cover.get("seconds", 1.6), len(voice) / 2 / SR + 0.3) * FPS)
+            for f in range(n):
+                z = 1 + 0.08 * max(0.0, 1 - f / 8) ** 2  # quick pop-in
+                frame = card if z == 1 else card.resize((int(w * z), int(h * z)), Image.BILINEAR).crop(
+                    (int(w * (z - 1) / 2), int(h * (z - 1) / 2), int(w * (z - 1) / 2) + w, int(h * (z - 1) / 2) + h))
+                emit(frame)
+            voice = voice[: n * spf * 2]
+            audio += voice + bytes(n * spf * 2 - len(voice))
+            prev_frame = card
+
+        for si, scene in enumerate(scenes):
             voice = narration(scene, cfg, tmp, base_dir)
             spoken = len(voice) / 2 / SR
             if not voice:
@@ -724,7 +897,7 @@ def render(script, base_dir, out_path, fmt, preview=False):
             voice = voice[: scene_n * spf * 2]
             audio += voice + bytes(scene_n * spf * 2 - len(voice))
             prev_frame = board.lo.copy()
-            print(f"  scene {si + 1}/{len(script['scenes'])}: {dur:.1f}s", flush=True)
+            print(f"  scene {si + 1}/{len(scenes)}: {dur:.1f}s", flush=True)
 
         ff.stdin.close()
         if ff.wait():
