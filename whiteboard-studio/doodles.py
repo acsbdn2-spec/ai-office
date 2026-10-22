@@ -8,6 +8,10 @@ square (0..1, y pointing down). A stroke is a dict:
     fill  optional colour role; the closed shape gets scribble-hatched
     w     line-width multiplier
 
+A doodle can also write words (see T): {"text", "x", "y", "size", "role"}.
+Doodles that take an argument are used as "name:argument", e.g.
+"keycap:Alt+F5" or "t_account:Cash A/c".
+
 The renderer scales the square into place, adds hand wobble and animates
 each stroke being drawn.
 """
@@ -16,6 +20,11 @@ import math
 
 def S(pts, role="ink", fill=None, w=1.0):
     return {"pts": list(pts), "role": role, "fill": fill, "w": w}
+
+
+def T(text, x, y, size=0.12, role="ink", bold=False, max_w=0.9):
+    """Text written by the pen, centred on (x, y); size is a fraction of the doodle."""
+    return {"text": text, "x": x, "y": y, "size": size, "role": role, "bold": bold, "max_w": max_w}
 
 
 def arc(cx, cy, rx, ry, a0, a1, n=None):
@@ -341,9 +350,138 @@ def like():
                (0.86, 0.5), (0.8, 0.84), (0.34, 0.84)], "a2")]
 
 
+# ------------------------------------------------------- accounting / Tally
+
+def arrow_left():
+    return [S([(0.92, 0.5), (0.65, 0.47), (0.38, 0.53), (0.12, 0.5)], "a1", w=1.3),
+            S(arrow_head(0.38, 0.53, 0.1, 0.5, 0.16), "a1", w=1.3)]
+
+
+def plus():
+    return [S([(0.5, 0.25), (0.5, 0.75)], "a1", w=1.6), S([(0.25, 0.5), (0.75, 0.5)], "a1", w=1.6)]
+
+
+def equals():
+    return [S([(0.25, 0.42), (0.75, 0.42)], "a1", w=1.6), S([(0.25, 0.58), (0.75, 0.58)], "a1", w=1.6)]
+
+
+def text(words="₹"):
+    """Just words, written big: "text:₹5,000" or "text:Dr = Cr"."""
+    return [T(words, 0.5, 0.5, 0.3, "ink", bold=True, max_w=0.98)]
+
+
+def label(words="Debit"):
+    """Words in a rounded tag."""
+    return [S(rrect(0.04, 0.32, 0.92, 0.36, 0.08), "a2", fill="a2"), T(words, 0.5, 0.5, 0.17, bold=True, max_w=0.82)]
+
+
+def keycap(key="F5"):
+    return [S(rrect(0.12, 0.2, 0.76, 0.6, 0.08)), S(rrect(0.2, 0.26, 0.6, 0.42, 0.05), "a2", w=0.6),
+            T(key, 0.5, 0.47, 0.2, "a1", bold=True, max_w=0.52)]
+
+
+def t_account(title=""):
+    out = [S([(0.08, 0.3), (0.92, 0.3)], w=1.3), S([(0.5, 0.3), (0.5, 0.92)], w=1.3),
+           T("Dr", 0.24, 0.4, 0.1, "a1", bold=True), T("Cr", 0.76, 0.4, 0.1, "a2", bold=True)]
+    if title:
+        out.insert(0, T(title, 0.5, 0.17, 0.12, bold=True, max_w=0.9))
+    return out
+
+
+def voucher(title="Voucher"):
+    edge = [(0.2, 0.08), (0.8, 0.08), (0.8, 0.86)]
+    for i in range(6):
+        edge += [(0.8 - (i + 0.5) * 0.1, 0.92), (0.8 - (i + 1) * 0.1, 0.86)]
+    return [S(edge + [(0.2, 0.08)]),
+            S(rect(0.2, 0.08, 0.6, 0.16), "a3", fill="a3"), T(title, 0.5, 0.16, 0.08, bold=True, max_w=0.55),
+            S([(0.28, 0.36), (0.72, 0.36)], w=0.5), S([(0.28, 0.46), (0.62, 0.46)], w=0.5),
+            S([(0.28, 0.56), (0.72, 0.56)], w=0.5), T("₹", 0.32, 0.72, 0.12, "a1", bold=True),
+            S([(0.4, 0.75), (0.72, 0.75)], "a1", w=0.8)]
+
+
+def ledger(title="Ledger"):
+    return [S(rrect(0.1, 0.08, 0.8, 0.84, 0.03), fill="a2"), S(rect(0.18, 0.14, 0.64, 0.14), w=0.8),
+            T(title, 0.5, 0.21, 0.08, bold=True, max_w=0.58),
+            S([(0.18, 0.36), (0.82, 0.36)], w=0.6), S([(0.5, 0.36), (0.5, 0.86)], w=0.6),
+            S([(0.24, 0.48), (0.44, 0.48)], w=0.5), S([(0.24, 0.6), (0.4, 0.6)], w=0.5),
+            S([(0.56, 0.48), (0.76, 0.48)], w=0.5), S([(0.56, 0.6), (0.72, 0.6)], w=0.5)]
+
+
+def laptop(screen="TallyPrime"):
+    out = [S(rrect(0.16, 0.14, 0.68, 0.48, 0.03)), S(rect(0.2, 0.18, 0.6, 0.4), "a2", w=0.6),
+           S([(0.06, 0.74), (0.16, 0.62), (0.84, 0.62), (0.94, 0.74), (0.06, 0.74)], fill="ink"),
+           S([(0.42, 0.68), (0.58, 0.68)], w=0.6)]
+    if screen:
+        out.append(T(screen, 0.5, 0.26, 0.06, "a2", bold=True, max_w=0.5))
+    for i, wd in enumerate((0.4, 0.3, 0.36)):
+        y = 0.36 + i * 0.07
+        out.append(S([(0.26, y), (0.26 + wd, y)], "a3", w=0.7))
+    return out
+
+
+def school():
+    out = [S([(0.06, 0.38), (0.5, 0.14), (0.94, 0.38), (0.06, 0.38)], "a1", fill="a1"),
+           S([(0.1, 0.38), (0.1, 0.9), (0.9, 0.9), (0.9, 0.38)]),
+           S(rect(0.42, 0.66, 0.16, 0.24), "a2", fill="a2"),
+           S([(0.5, 0.14), (0.5, 0.02)]), S([(0.5, 0.02), (0.64, 0.05), (0.5, 0.08)], "a3", fill="a3"),
+           S(circle(0.5, 0.28, 0.04), w=0.6)]
+    for x in (0.18, 0.3, 0.62, 0.74):
+        out.append(S(rect(x, 0.48, 0.08, 0.1), w=0.7))
+        out.append(S(rect(x, 0.7, 0.08, 0.1), w=0.7))
+    return out
+
+
+def student():
+    return person(0.5, 1.0, "ink") + [
+        S([(0.3, 0.08), (0.5, 0.0), (0.7, 0.08), (0.5, 0.15), (0.3, 0.08)], "a2", fill="a2"),
+        S([(0.66, 0.1), (0.68, 0.24)], "a3", w=0.8),
+        S(rect(0.6, 0.48, 0.16, 0.12), "a1", fill="a1")]
+
+
+def teacher():
+    return person(0.3, 0.9) + [S(rect(0.52, 0.12, 0.42, 0.34), "a2"),
+                               S([(0.48, 0.38), (0.6, 0.3)], "a1", w=0.8),
+                               T("A B C", 0.73, 0.29, 0.07, "a2", bold=True)]
+
+
+def rupee():
+    return [S(circle(0.5, 0.5, 0.42), "a3", fill="a3"), S(circle(0.5, 0.5, 0.34), w=0.6),
+            T("₹", 0.5, 0.5, 0.4, bold=True)]
+
+
+def bank():
+    out = [S([(0.06, 0.32), (0.5, 0.08), (0.94, 0.32), (0.06, 0.32)], "a2", fill="a2"),
+           S(rect(0.08, 0.32, 0.84, 0.06)), S(rect(0.04, 0.84, 0.92, 0.08)),
+           T("BANK", 0.5, 0.24, 0.07, bold=True)]
+    for x in (0.16, 0.34, 0.52, 0.7):
+        out.append(S(rect(x, 0.42, 0.1, 0.38), w=0.8))
+    return out
+
+
+def scale():
+    """A balanced scale with Dr and Cr pans: the trial balance tallies."""
+    return [S([(0.5, 0.12), (0.5, 0.86)], w=1.2), S([(0.32, 0.92), (0.68, 0.92)], w=1.2),
+            S(circle(0.5, 0.12, 0.03), fill="ink"),
+            S([(0.12, 0.2), (0.88, 0.2)], w=1.1),
+            S([(0.12, 0.2), (0.05, 0.56)], w=0.5), S([(0.12, 0.2), (0.29, 0.56)], w=0.5),
+            S([(0.88, 0.2), (0.71, 0.56)], w=0.5), S([(0.88, 0.2), (0.95, 0.56)], w=0.5),
+            S(arc(0.17, 0.56, 0.13, 0.1, 0, 180, 12) + [(0.04, 0.56), (0.3, 0.56)], "a1", fill="a1"),
+            S(arc(0.83, 0.56, 0.13, 0.1, 0, 180, 12) + [(0.7, 0.56), (0.96, 0.56)], "a2", fill="a2"),
+            T("Dr", 0.17, 0.46, 0.09, "a1", bold=True), T("Cr", 0.83, 0.46, 0.09, "a2", bold=True)]
+
+
+def calculator():
+    out = [S(rrect(0.24, 0.06, 0.52, 0.88, 0.05)), S(rect(0.3, 0.12, 0.4, 0.16), "a2", fill="a2")]
+    for r in range(4):
+        for c in range(3):
+            x, y = 0.32 + c * 0.13, 0.36 + r * 0.14
+            out.append(S(rrect(x, y, 0.09, 0.09, 0.015), "a1" if (r, c) == (3, 2) else "ink", w=0.6))
+    return out
+
+
 DOODLES = {name: fn for name, fn in globals().items()
            if callable(fn) and not name.startswith("_") and fn.__module__ == __name__
-           and name not in ("S", "arc", "circle", "ellipse", "rect", "rrect", "arrow_head",
+           and name not in ("S", "T", "arc", "circle", "ellipse", "rect", "rrect", "arrow_head",
                             "star_pts", "dollar_sign", "person", "battery")}
 DOODLES["person"] = lambda: person()
 DOODLES["battery"] = lambda: battery()

@@ -4,8 +4,9 @@ Turns a short JSON script into a hand-drawn **whiteboard** or **scribble** expla
 
 - **Long-form videos:** 1920×1080 landscape.
 - **YouTube Shorts:** 1080×1920 vertical, with large captions burned in.
-- **Two looks:** `whiteboard` (clean marker on a white board) and `scribble` (ink on notebook paper with highlighter and hatched shading).
-- **English and Bangla:** Bengali text switches to Hind Siliguri automatically, and `"voice": "bn"` narrates in Bangla.
+- **Four looks:** `whiteboard` (clean marker on a white board), `scribble` (ink on notebook paper with highlighter and hatched shading), `brand` (the channel's navy, amber and teal) and `chalkboard` (chalk on dark teal).
+- **Bangla:** Bengali text uses Baloo Da 2 for headings and Atma for hand-written points. A natural neural voice (`bn-IN-TanishaaNeural`) reads the narration.
+- **Channel strip:** the channel name, series and a "PART" badge, at the bottom of long videos and the top of Shorts.
 - **Thumbnail:** a `*_thumbnail.png` is saved for every video.
 
 ## Quick start
@@ -21,7 +22,22 @@ python3 render.py my-script.json --no-voice                       # silent, so y
 
 Videos go to `out/`. A 30-second Short renders in about 15 seconds.
 
-**Requirements:** Python 3 with Pillow (built with libraqm for Bangla), `ffmpeg`, and `espeak-ng` for the built-in voice (`apt-get install espeak-ng`).
+**Requirements:** Python 3 with Pillow (built with libraqm for Bangla) and `ffmpeg`. For voices: `pip install edge-tts gTTS` (online) or `apt-get install espeak-ng` (offline).
+
+## Bangla videos with a natural voice (GitHub Actions)
+
+The scripts in `scripts/bangla/` use the Microsoft Edge neural voice `bn-IN-TanishaaNeural`, which sounds like everyday spoken Bangla. It needs the internet, so the **Render whiteboard videos** GitHub Action renders them:
+
+1. Add or edit a script in `whiteboard-studio/scripts/` and push it.
+2. The Action renders only the scripts that changed. It commits the MP4s and thumbnails to `whiteboard-studio/videos/`.
+3. To re-render manually, go to the Actions tab, choose **Render whiteboard videos**, then **Run workflow**.
+
+If the neural voice is unreachable, the renderer falls back to Google's Bangla voice and then to `espeak-ng`.
+
+Writing tips for natural narration:
+- Write `say` the way you speak, in chalti bhasha: "আজকে আমরা দেখব…", "মনে রাখুন…".
+- Write English terms in Bangla script inside `say` (ডেবিট, লেজার, ভাউচার, এফ ফাইভ) so the voice pronounces them like a Bangla speaker. On-screen text (`heading`, `points`) can keep them in English (Debit, Ledger, F5).
+- Short sentences with commas give the voice natural pauses.
 
 ## Script format
 
@@ -29,8 +45,13 @@ Videos go to `out/`. A 30-second Short renders in about 15 seconds.
 {
   "format": "short",              // "landscape" or "short"
   "style": "scribble",            // "whiteboard" or "scribble"
-  "voice": "en-us+f3",            // espeak-ng voice: en-us+m3, en-gb+f2, bn, hi ... or "none"
-  "rate": 165,                    // speaking speed (words per minute)
+  "voice": "bn-IN-TanishaaNeural",// neural voice (bn-IN-BashkarNeural is male, bn-BD-NabanitaNeural is Bangladeshi)
+                                  // or an espeak-ng voice: en-us+m3, bn, hi ... or "none"
+  "speed": "-4%",                 // neural voice speed, e.g. "-10%" or "+5%"
+  "rate": 165,                    // espeak-ng speed (words per minute)
+  "tts": "edge",                  // force an engine: edge | gtts | espeak (default picks from the voice)
+  "brand": {"name": "PROTYASHA TAH", "tagline": "Business Software Trainer",
+            "series": "TallyPrime School & Institute Accounting · বাংলায়", "badge": "PART 12"},
   "music": "music/lofi.mp3",      // optional background track, looped under the voice
   "music_volume": 0.12,
   "captions": true,               // defaults to on for Shorts and off for landscape
@@ -57,7 +78,22 @@ A scene needs only one of `heading`, `doodle` or `points`. A scene with only a h
 
 ### Doodles
 
-`arrow_down` `arrow_right` `bar_chart` `battery` `battery_low` `book` `brain` `calendar` `check` `clock` `coin` `cross` `decline_chart` `exclamation` `gear` `globe` `growth_chart` `heart` `hourglass` `house` `lightbulb` `like` `magnifier` `money` `mountain` `people` `person` `phone` `plant` `question` `rocket` `snowball` `speech` `star` `subscribe` `target` `trophy` `warning`
+**Accounting and Tally.** Doodles that take a word are written as `name:word`.
+
+| Doodle | Draws |
+|---|---|
+| `t_account:Cash A/c` | T-account with Dr and Cr sides |
+| `scale` | Balanced scale with Dr and Cr pans (trial balance) |
+| `voucher:Payment` | Voucher slip with a title and a ₹ amount |
+| `ledger:Ledger` | Account register |
+| `keycap:F5` | Keyboard key, e.g. `keycap:Alt+F5` |
+| `laptop:TallyPrime` | Laptop with text on the screen |
+| `label:Debit` | Rounded tag with any words |
+| `text:₹5,000` | Big hand-written words |
+| `rupee` | ₹ coin |
+| `bank`, `school`, `student`, `teacher`, `calculator`, `plus`, `equals`, `arrow_left` | |
+
+**General:** `arrow_down` `arrow_right` `bar_chart` `battery` `battery_low` `book` `brain` `calendar` `check` `clock` `coin` `cross` `decline_chart` `exclamation` `gear` `globe` `growth_chart` `heart` `hourglass` `house` `lightbulb` `like` `magnifier` `money` `mountain` `people` `person` `phone` `plant` `question` `rocket` `snowball` `speech` `star` `subscribe` `target` `trophy` `warning`
 
 To add your own, write a function in `doodles.py` that returns strokes in a 0–1 square. It is picked up automatically.
 

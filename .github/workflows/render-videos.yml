@@ -1,0 +1,71 @@
+name: Render whiteboard videos
+
+# Renders whiteboard-studio scripts with a natural neural voice (needs the
+# internet access GitHub runners have) and commits the MP4s to
+# whiteboard-studio/videos/.
+on:
+  push:
+    paths:
+      - "whiteboard-studio/scripts/**"
+  workflow_dispatch:
+    inputs:
+      scripts:
+        description: "Scripts to render (glob, relative to whiteboard-studio/)"
+        default: "scripts/bangla/*.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: render-videos-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: whiteboard-studio
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg espeak-ng libraqm0 libfribidi0 libharfbuzz0b
+          pip install -q pillow edge-tts gTTS
+          python -c "from PIL import features; assert features.check('raqm'), 'Pillow lacks raqm: Bangla text would not shape correctly'"
+
+      - name: Pick scripts
+        id: pick
+        env:
+          INPUT_SCRIPTS: ${{ github.event.inputs.scripts }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$INPUT_SCRIPTS" ]; then
+            files=$(ls $INPUT_SCRIPTS)
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            files=$(git diff --name-only --diff-filter=AM "$BEFORE" "$GITHUB_SHA" -- 'scripts/*.json' | sed 's#^whiteboard-studio/##')
+          else
+            files=$(git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'scripts/*.json' | sed 's#^whiteboard-studio/##')
+          fi
+          echo "files=$(echo $files)" >> "$GITHUB_OUTPUT"
+          echo "Will render: $files"
+
+      - name: Render
+        if: steps.pick.outputs.files != ''
+        run: python render.py ${{ steps.pick.outputs.files }} --out-dir videos
+
+      - name: Commit videos
+        if: steps.pick.outputs.files != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898099+github-actions[bot]@users.noreply.github.com"
+          git add videos
+          git diff --cached --quiet && exit 0
+          git commit -m "Render videos: ${{ steps.pick.outputs.files }}"
+          for i in 1 2 3; do git pull --rebase -q && git push && exit 0; sleep 5; done
+          exit 1

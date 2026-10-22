@@ -1,0 +1,38 @@
+{
+  "title": "Receivable vs Payable",
+  "format": "short",
+  "style": "chalkboard",
+  "voice": "bn-IN-TanishaaNeural",
+  "brand": {"name": "PROTYASHA TAH", "series": "TallyPrime বাংলায়"},
+  "scenes": [
+    {
+      "heading": "Receivable না Payable? গুলিয়ে যায়?",
+      "doodle": "question",
+      "say": "রিসিভেবল আর পেয়েবল, গুলিয়ে যায়? তিরিশ সেকেন্ডে বুঝিয়ে দিচ্ছি।",
+      "thumbnail": true
+    },
+    {
+      "heading": "Receivable মানে পাওনা টাকা",
+      "doodle": ["student", "arrow_right", "school"],
+      "points": ["Student-এর Fee এখনো বাকি", "টাকাটা স্কুল পাবে"],
+      "say": "রিসিভেবল মানে পাওনা টাকা। যেমন কোনো স্টুডেন্টের ফি এখনো বাকি আছে। সেই টাকাটা স্কুল পাবে, তাই এটা রিসিভেবল।"
+    },
+    {
+      "heading": "Payable মানে দেনা টাকা",
+      "doodle": ["school", "arrow_right", "teacher"],
+      "points": ["Teacher-এর Salary এখনো দেওয়া হয়নি", "টাকাটা স্কুলকে দিতে হবে"],
+      "say": "পেয়েবল মানে দেনা টাকা। যেমন টিচারের এই মাসের স্যালারি এখনো দেওয়া হয়নি। সেই টাকাটা স্কুলকে দিতে হবে, তাই এটা পেয়েবল।"
+    },
+    {
+      "heading": "সহজ ট্রিক",
+      "doodle": "lightbulb",
+      "points": ["পাব = Receivable", "দেব = Payable"],
+      "say": "সহজ ট্রিকটা মনে রাখুন। পাব মানে রিসিভেবল, আর দেব মানে পেয়েবল।"
+    },
+    {
+      "heading": "Tally-তে Report দেখুন Part 10-এ",
+      "doodle": ["laptop:TallyPrime", "subscribe"],
+      "say": "টালি প্রাইমে বাকি ফি আর বাকি স্যালারির রিপোর্ট কীভাবে দেখবেন, সেটা চ্যানেলের পার্ট টেন ভিডিওতে আছে। এমন আরও টিপসের জন্য ফলো করুন!"
+    }
+  ]
+}

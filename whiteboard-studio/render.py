@@ -5,11 +5,11 @@
     python3 render.py scripts/compound-interest.json --format short
     python3 render.py scripts/compound-interest.json --format both
     python3 render.py scripts/compound-interest.json --preview    # PNG per scene, no video
+    python3 render.py scripts/*.json --out-dir videos             # several scripts at once
 
 See README.md for the script format.
 """
 import argparse
-import bisect
 import functools
 import itertools
 import json
@@ -29,8 +29,7 @@ import doodles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT_DIR = os.path.join(HERE, "fonts")
-BENGALI_FONT = os.path.join(FONT_DIR, "HindSiliguri-SemiBold.ttf")
-CAPTION_FONT = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"
+CAPTION_FONT = os.path.join(FONT_DIR, "BalooDa2-ExtraBold.ttf")
 FPS = 30
 SR = 44100
 SS = 2  # strokes are drawn at 2x and downsampled, which antialiases them
@@ -52,17 +51,42 @@ STYLES = {
         "head_font": "Caveat-Bold.ttf", "body_font": "PatrickHand-Regular.ttf", "bullet": "arrow",
         "rules": (200, 218, 240), "margin": (238, 160, 160),
     },
+    # Navy, amber and teal from the Protyasha Tah thumbnails, on a clean board.
+    "brand": {
+        "bg": (250, 250, 246), "ink": (18, 42, 82), "a1": (226, 72, 48), "a2": (0, 132, 146),
+        "a3": (240, 166, 0), "highlight": (255, 222, 100), "width": 7, "wobble": 1.3, "double": False,
+        "head_font": "BalooDa2-ExtraBold.ttf", "body_font": "Atma-SemiBold.ttf", "bullet": "check",
+        "rules": None, "bar": (18, 42, 82), "bar_text": (255, 255, 255), "badge": (255, 200, 40),
+    },
+    "chalkboard": {
+        "bg": (22, 54, 66), "ink": (240, 242, 236), "a1": (255, 204, 60), "a2": (120, 212, 228),
+        "a3": (150, 222, 120), "highlight": None, "width": 7, "wobble": 1.6, "double": False,
+        "head_font": "BalooDa2-ExtraBold.ttf", "body_font": "Atma-SemiBold.ttf", "bullet": "arrow",
+        "rules": None, "bar": (10, 30, 40), "bar_text": (240, 242, 236), "badge": (255, 204, 60),
+    },
 }
+for _st in STYLES.values():
+    _st.setdefault("bar", _st["ink"])
+    _st.setdefault("bar_text", _st["bg"])
+    _st.setdefault("badge", _st["a3"])
 
-BENGALI = re.compile("[ঀ-৿]")
+BENGALI = re.compile("[\u0980-\u09FF]")
+BENGALI_FONTS = {"head": "BalooDa2-ExtraBold.ttf", "body": "Atma-SemiBold.ttf"}
 
 
 @functools.lru_cache(maxsize=256)
 def font(name, size, text_sample=""):
-    path = BENGALI_FONT if BENGALI.search(text_sample) else os.path.join(FONT_DIR, name)
+    """Load a font; Bengali text switches to a Bengali font of the same role."""
+    if BENGALI.search(text_sample) and name not in BENGALI_FONTS.values():
+        name = BENGALI_FONTS["head" if "Bold" in name else "body"]
+    path = os.path.join(FONT_DIR, name)
     if not os.path.exists(path):
         path = name  # allow an absolute path to any .ttf
     return ImageFont.truetype(path, size)
+
+
+def line_height(size, texts):
+    return size * SS * (1.32 if any(BENGALI.search(t) for t in texts) else 1.12)
 
 
 def tint(color, bg, amount):
@@ -74,7 +98,7 @@ def tint(color, bg, amount):
 class Board:
     """A hi-res canvas plus its downsampled copy that becomes the video frame."""
 
-    def __init__(self, w, h, style):
+    def __init__(self, w, h, style, brand=None):
         self.w, self.h = w, h
         self.hi = Image.new("RGB", (w * SS, h * SS), style["bg"])
         d = ImageDraw.Draw(self.hi)
@@ -85,6 +109,8 @@ class Board:
             mx = (130 if w > h else 70) * SS
             d.line([(mx, 0), (mx, h * SS)], fill=style["margin"], width=2 * SS)
         self.draw = d
+        if brand:
+            draw_brand(self.hi, brand, style, w, h)
         self.lo = self.hi.resize((w, h), Image.BOX)
 
     def flush(self, x0, y0, x1, y1):
@@ -96,6 +122,48 @@ class Board:
             return
         region = self.hi.crop((x0, y0, x1, y1)).resize(((x1 - x0) // SS, (y1 - y0) // SS), Image.BOX)
         self.lo.paste(region, (x0 // SS, y0 // SS))
+
+
+BAR_H = 76  # height of the brand strip in frame pixels
+
+
+def draw_brand(img, brand, style, w, h):
+    """Channel strip: footer on landscape boards, header on Shorts (the Shorts UI covers the bottom)."""
+    d = ImageDraw.Draw(img)
+    y0 = (h - BAR_H) * SS if w > h else 0
+    d.rectangle((0, y0, w * SS, y0 + BAR_H * SS), fill=style["bar"])
+    x = 30 * SS
+    cy = y0 + BAR_H * SS / 2
+    if brand.get("badge"):
+        f = font("BalooDa2-ExtraBold.ttf", 34 * SS)
+        tw = f.getlength(brand["badge"])
+        d.rounded_rectangle((x, cy - 26 * SS, x + tw + 36 * SS, cy + 26 * SS), radius=26 * SS, fill=style["badge"])
+        d.text((x + 18 * SS, cy + 2 * SS), brand["badge"], font=f, fill=style["bar"], anchor="lm")
+        x += tw + 60 * SS
+    series = brand.get("series", "")
+    name = brand.get("name", "")
+    if w > h:
+        if series:
+            d.text((x, cy + 2 * SS), series, font=font("Atma-SemiBold.ttf", 32 * SS), fill=style["bar_text"], anchor="lm")
+        if name:
+            nf = font("BalooDa2-ExtraBold.ttf", 36 * SS)
+            tag = brand.get("tagline", "")
+            if tag:
+                d.text((w * SS - 30 * SS, cy - 2 * SS), name, font=nf, fill=style["badge"], anchor="rb")
+                d.text((w * SS - 30 * SS, cy + 2 * SS), tag, font=font("Atma-SemiBold.ttf", 22 * SS),
+                       fill=style["bar_text"], anchor="rt")
+            else:
+                d.text((w * SS - 30 * SS, cy + 2 * SS), name, font=nf, fill=style["badge"], anchor="rm")
+    else:
+        rest = f"  ·  {series}" if name and series else series
+        size = 46
+        f = font("BalooDa2-ExtraBold.ttf", size * SS, rest)
+        while f.getlength(name + rest) > (w * SS - x - 30 * SS) and size > 18:
+            size -= 2
+            f = font("BalooDa2-ExtraBold.ttf", size * SS, rest)
+        x = (w * SS - f.getlength(name + rest)) / 2
+        d.text((x, cy + 4 * SS), name, font=f, fill=style["badge"], anchor="lm")
+        d.text((x + f.getlength(name), cy + 4 * SS), rest, font=f, fill=style["bar_text"], anchor="lm")
 
 
 # --------------------------------------------------------------- elements
@@ -232,17 +300,19 @@ def fit(texts, font_name, box_w, box_h, max_size, min_size, max_lines, gap=0.35)
     for size in range(max_size, min_size - 1, -4):
         fnts = [font(font_name, size * SS, t) for t in texts]
         wrapped = [wrap(t, f, box_w) for t, f in zip(texts, fnts)]
-        line_h = size * SS * 1.12
+        line_h = line_height(size, texts)
         total = sum(len(w) for w in wrapped) * line_h + gap * line_h * (len(texts) - 1)
         if all(len(w) <= max_lines for w in wrapped) and total <= box_h:
             return size, fnts, wrapped, line_h
     size = min_size
     fnts = [font(font_name, size * SS, t) for t in texts]
-    return size, fnts, [wrap(t, f, box_w) for t, f in zip(texts, fnts)], size * SS * 1.12
+    return size, fnts, [wrap(t, f, box_w) for t, f in zip(texts, fnts)], line_height(size, texts)
 
 
-def regions(w, h, has_head, has_doodle, has_points, captions):
+def regions(w, h, has_head, has_doodle, has_points, captions, brand=False):
     """Boxes (x, y, w, h) in frame pixels for heading, doodle and points."""
+    if brand and w > h:
+        h -= BAR_H - 20
     if w > h:  # landscape
         top = 230 if has_head else 70
         if not has_doodle and not has_points:
@@ -259,7 +329,7 @@ def regions(w, h, has_head, has_doodle, has_points, captions):
     bottom = h - (400 if captions else 120)
     if not has_doodle and not has_points:
         return {"head": (70, 300, w - 140, bottom - 400)}
-    r = {"head": (50, 110, w - 100, 360)}
+    r = {"head": (50, 150 if brand else 110, w - 100, 340 if brand else 360)}
     top = 500 if has_head else 160
     if has_doodle and has_points:
         split = top + (bottom - top) * 0.5
@@ -274,15 +344,15 @@ def regions(w, h, has_head, has_doodle, has_points, captions):
 
 # ---------------------------------------------------------- scene build
 
-def build_scene(scene, style, w, h, rng, captions):
+def build_scene(scene, style, w, h, rng, captions, brand=None):
     names = scene.get("doodle") or []
     names = [names] if isinstance(names, str) else names
     for n in names:
-        if n not in doodles.DOODLES:
+        if n.split(":")[0] not in doodles.DOODLES:
             sys.exit(f"Unknown doodle '{n}'. Available: {', '.join(sorted(doodles.DOODLES))}")
     head = scene.get("heading", "")
     points = scene.get("points", [])
-    reg = regions(w, h, bool(head), bool(names), bool(points), captions)
+    reg = regions(w, h, bool(head), bool(names), bool(points), captions, bool(brand))
     els = []
     width = style["width"] * SS
     colors = {k: style[k] for k in ("ink", "a1", "a2", "a3")}
@@ -332,7 +402,12 @@ def build_scene(scene, style, w, h, rng, captions):
             pad = cell * 0.06
             size = cell - pad * 2
             scale = max(0.6, min(1.4, (size / SS / 520) ** 0.5))
-            for st in doodles.DOODLES[name]():
+            kind, _, arg = name.partition(":")
+            strokes = doodles.DOODLES[kind](arg) if arg else doodles.DOODLES[kind]()
+            for st in strokes:
+                if "text" in st:
+                    els.append(doodle_text(st, cx + pad, cy + pad, size, style, colors))
+                    continue
                 pts = [(cx + pad + x * size, cy + pad + y * size) for x, y in st["pts"]]
                 color = colors[st["role"]]
                 add_path(pts, color, width * scale * st["w"])
@@ -345,7 +420,7 @@ def build_scene(scene, style, w, h, rng, captions):
     # bullet points
     if points:
         bx, by, bw, bh = [v * SS for v in reg["points"]]
-        indent = 70 * SS
+        indent = 95 * SS
         size, fnts, wrapped, lh = fit(points, style["body_font"], bw - indent, bh,
                                       100, 34, 3, gap=0.45)
         total = sum(len(wl) for wl in wrapped) * lh + 0.45 * lh * (len(points) - 1)
@@ -379,6 +454,22 @@ def build_scene(scene, style, w, h, rng, captions):
         out.append(el)
         prev = el
     return out
+
+
+def doodle_text(st, ox, oy, size, style, colors):
+    """A word written inside a doodle (a key label, Dr / Cr, a voucher title)."""
+    txt = st["text"]
+    fname = style["head_font"] if st.get("bold") else style["body_font"]
+    px = max(12, int(st.get("size", 0.12) * size))
+    fnt = font(fname, px, txt)
+    max_w = st.get("max_w", 0.9) * size
+    while fnt.getlength(txt) > max_w and px > 12:
+        px = int(px * 0.92)
+        fnt = font(fname, px, txt)
+    l, t, r, b = fnt.getbbox(txt)
+    x = ox + st["x"] * size - (r + l) / 2
+    y = oy + st["y"] * size - (b + t) / 2
+    return TextEl(txt, fnt, colors[st.get("role", "ink")], x, y)
 
 
 # ------------------------------------------------------------- sprites
@@ -433,14 +524,14 @@ def caption_chunks(text, duration):
 @functools.lru_cache(maxsize=512)
 def caption_image(text, frame_w, color):
     """Bold outlined caption; words are placed one by one so the outline can't swallow the spaces."""
-    fnt_name = BENGALI_FONT if BENGALI.search(text) else CAPTION_FONT
+    fnt_name = CAPTION_FONT
     words, size = text.split(), 84
     while True:
         fnt = ImageFont.truetype(fnt_name, size)
         stroke, gap = max(4, size // 12), size * 0.34
         widths = [fnt.getlength(wd) for wd in words]
         total = sum(widths) + gap * (len(words) - 1)
-        if total <= frame_w - 140 or size <= 40:
+        if total <= frame_w - 160 or size <= 40:
             break
         size -= 4
     asc, desc = fnt.getmetrics()
@@ -468,15 +559,55 @@ def to_pcm(src, tmp):
         return wf.readframes(wf.getnframes())
 
 
+NEURAL = re.compile(r"^[a-z]{2,3}-[A-Z]{2}-\w+Neural$")
+
+
+def tts_edge(text, cfg, out):
+    """Microsoft Edge neural voices, e.g. bn-IN-TanishaaNeural (needs internet)."""
+    r = subprocess.run([sys.executable, "-m", "edge_tts", "--voice", cfg["voice"], f"--rate={cfg['speed']}",
+                        f"--pitch={cfg['tone']}", "--text", text, "--write-media", out],
+                       capture_output=True, text=True, timeout=120)
+    return r.returncode == 0 and os.path.getsize(out) > 0
+
+
+def tts_gtts(text, cfg, out):
+    """Google Translate voice (needs internet)."""
+    try:
+        from gtts import gTTS
+        gTTS(text, lang=cfg["voice"].split("-")[0], tld=cfg.get("gtts_tld", "co.in")).save(out)
+        return True
+    except Exception as e:  # noqa: BLE001 - any failure means "try the next engine"
+        print(f"    gTTS failed: {e}", file=sys.stderr)
+        return False
+
+
+def tts_espeak(text, cfg, out):
+    voice = cfg["voice"].split("-")[0] if NEURAL.match(cfg["voice"]) else cfg["voice"]
+    r = subprocess.run(["espeak-ng", "-v", voice, "-s", str(cfg["rate"]), "-p", str(cfg["pitch"]), "-w", out, text],
+                       capture_output=True)
+    return r.returncode == 0
+
+
+ENGINES = {"edge": tts_edge, "gtts": tts_gtts, "espeak": tts_espeak}
+
+
 def narration(scene, cfg, tmp, base_dir):
     if scene.get("audio"):
         return to_pcm(os.path.join(base_dir, scene["audio"]), tmp)
     text = scene.get("say", "").strip()
-    if not text or cfg["voice"] == "none":
+    if not text or cfg["voice"] == "none" or cfg["tts"] == "none":
         return b""
-    raw = os.path.join(tmp, f"tts{random.randrange(10**9)}.wav")
-    run(["espeak-ng", "-v", cfg["voice"], "-s", str(cfg["rate"]), "-p", str(cfg["pitch"]), "-w", raw, text])
-    return to_pcm(raw, tmp)
+    order = [cfg["tts"]] + [e for e in ("edge", "gtts", "espeak") if e != cfg["tts"]]
+    for engine in order:
+        out = os.path.join(tmp, f"tts{random.randrange(10**9)}.{'wav' if engine == 'espeak' else 'mp3'}")
+        try:
+            if ENGINES[engine](text, cfg, out):
+                if engine != cfg["tts"]:
+                    print(f"    voice: fell back to {engine}", file=sys.stderr)
+                return to_pcm(out, tmp)
+        except (OSError, subprocess.SubprocessError) as e:
+            print(f"    {engine} failed: {e}", file=sys.stderr)
+    sys.exit("No text-to-speech engine worked. Use --no-voice or give each scene an 'audio' file.")
 
 
 # -------------------------------------------------------------- render
@@ -485,8 +616,11 @@ def render(script, base_dir, out_path, fmt, preview=False):
     w, h = FORMATS[fmt]
     style = dict(STYLES[script.get("style", "whiteboard")])
     style.update({k: tuple(v) for k, v in script.get("colors", {}).items()})
-    cfg = {"voice": script.get("voice", "en-us+m3"), "rate": script.get("rate", 160),
-           "pitch": script.get("pitch", 45)}
+    voice = script.get("voice", "en-us+m3")
+    cfg = {"voice": voice, "rate": script.get("rate", 160), "pitch": script.get("pitch", 45),
+           "speed": script.get("speed", "+0%"), "tone": script.get("tone", "+0Hz"),
+           "tts": script.get("tts") or ("edge" if NEURAL.match(voice) else "espeak")}
+    brand = script.get("brand")
     captions = script.get("captions", fmt == "short")
     rng = random.Random(script.get("seed", 7))
     tmp = tempfile.mkdtemp(prefix="wbs_")
@@ -495,8 +629,8 @@ def render(script, base_dir, out_path, fmt, preview=False):
     try:
         if preview:
             for i, scene in enumerate(script["scenes"]):
-                board = Board(w, h, style)
-                for el in build_scene(scene, style, w, h, rng, captions):
+                board = Board(w, h, style, brand)
+                for el in build_scene(scene, style, w, h, rng, captions, brand):
                     el.advance(board, 1.0)
                 path = f"{stem}_scene{i + 1:02d}.png"
                 board.lo.save(path)
@@ -523,8 +657,8 @@ def render(script, base_dir, out_path, fmt, preview=False):
             spoken = len(voice) / 2 / SR
             if not voice:
                 spoken = len(scene.get("say", "").split()) * 0.4
-            board = Board(w, h, style)
-            els = build_scene(scene, style, w, h, rng, captions)
+            board = Board(w, h, style, brand)
+            els = build_scene(scene, style, w, h, rng, captions, brand)
             cost = sum(e.cost for e in els)
             draw_t = max(1.5, spoken * 0.85, cost / PEN_SPEED)
             dur = max(spoken + 0.8, draw_t + 0.9, scene.get("min_seconds", 0), 2.5) + scene.get("hold", 0)
@@ -580,7 +714,7 @@ def render(script, base_dir, out_path, fmt, preview=False):
                     for c0, c1, text in chunks:
                         if c0 <= t < c1:
                             cap = caption_image(text, w, (255, 255, 255))
-                            frame.paste(cap, ((w - cap.width) // 2, int(h * 0.84 - cap.height / 2)), cap)
+                            frame.paste(cap, ((w - cap.width) // 2, int(h * 0.82 - cap.height / 2)), cap)
                             break
                 emit(frame)
             voice = voice[: scene_n * spf * 2]
@@ -612,29 +746,37 @@ def render(script, base_dir, out_path, fmt, preview=False):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("script", help="JSON script file")
-    ap.add_argument("-o", "--out", help="output .mp4 (default: out/<script name>.mp4)")
+    ap.add_argument("scripts", nargs="+", metavar="script", help="JSON script file(s)")
+    ap.add_argument("-o", "--out", help="output .mp4 (default: out/<script name>.mp4); one script only")
+    ap.add_argument("--out-dir", default=os.path.join(HERE, "out"), help="folder for videos (default: out/)")
     ap.add_argument("--format", choices=["landscape", "short", "both"], help="override the script's format")
     ap.add_argument("--style", choices=sorted(STYLES), help="override the script's style")
     ap.add_argument("--no-voice", action="store_true", help="silent video (record your own voiceover later)")
+    ap.add_argument("--tts", choices=sorted(ENGINES), help="override the voice engine (edge, gtts, espeak)")
     ap.add_argument("--preview", action="store_true", help="write one PNG per scene instead of a video")
     a = ap.parse_args()
+    if a.out and len(a.scripts) > 1:
+        ap.error("--out works with one script; use --out-dir for several")
 
-    with open(a.script, encoding="utf-8") as f:
-        script = json.load(f)
-    if a.style:
-        script["style"] = a.style
-    if a.no_voice:
-        script["voice"] = "none"
-    fmt = a.format or script.get("format", "landscape")
-    name = os.path.splitext(os.path.basename(a.script))[0]
-    os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
-    for fm in (["landscape", "short"] if fmt == "both" else [fmt]):
-        out = a.out or os.path.join(HERE, "out", f"{name}{'-short' if fm == 'short' and fmt == 'both' else ''}.mp4")
-        if fmt == "both" and a.out:
-            out = os.path.splitext(a.out)[0] + ("-short" if fm == "short" else "") + ".mp4"
-        print(f"Rendering {fm} -> {out}")
-        render(script, os.path.dirname(os.path.abspath(a.script)), out, fm, a.preview)
+    os.makedirs(a.out_dir, exist_ok=True)
+    for path in a.scripts:
+        with open(path, encoding="utf-8") as f:
+            script = json.load(f)
+        if a.style:
+            script["style"] = a.style
+        if a.no_voice:
+            script["voice"] = "none"
+        if a.tts:
+            script["tts"] = a.tts
+        fmt = a.format or script.get("format", "landscape")
+        name = os.path.splitext(os.path.basename(path))[0]
+        for fm in (["landscape", "short"] if fmt == "both" else [fmt]):
+            suffix = "-short" if fm == "short" and fmt == "both" else ""
+            out = os.path.join(a.out_dir, f"{name}{suffix}.mp4")
+            if a.out:
+                out = os.path.splitext(a.out)[0] + suffix + ".mp4"
+            print(f"Rendering {fm} -> {out}")
+            render(script, os.path.dirname(os.path.abspath(path)), out, fm, a.preview)
 
 
 if __name__ == "__main__":

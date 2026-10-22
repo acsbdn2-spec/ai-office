@@ -1,0 +1,44 @@
+{
+  "title": "TallyPrime Voucher Shortcuts",
+  "format": "short",
+  "style": "brand",
+  "voice": "bn-IN-TanishaaNeural",
+  "brand": {"name": "PROTYASHA TAH", "series": "TallyPrime বাংলায়"},
+  "scenes": [
+    {
+      "heading": "TallyPrime-এর ৪টে Voucher Shortcut",
+      "doodle": "laptop:TallyPrime",
+      "say": "টালি প্রাইমের চারটে ভাউচার শর্টকাট, যেগুলো রোজ কাজে লাগবে।",
+      "thumbnail": true
+    },
+    {
+      "heading": "F5 = Payment",
+      "doodle": "keycap:F5",
+      "points": ["টাকা দিলে: Salary, ভাড়া, Electricity"],
+      "say": "এফ ফাইভ, পেমেন্ট ভাউচার। যখনই টাকা দিচ্ছেন, যেমন স্যালারি, ভাড়া বা ইলেকট্রিক বিল।"
+    },
+    {
+      "heading": "F6 = Receipt",
+      "doodle": "keycap:F6",
+      "points": ["টাকা পেলে: Student Fee, Donation"],
+      "say": "এফ সিক্স, রিসিপ্ট ভাউচার। যখন টাকা পাচ্ছেন, যেমন স্টুডেন্টের ফি বা ডোনেশন।"
+    },
+    {
+      "heading": "F4 = Contra",
+      "doodle": "keycap:F4",
+      "points": ["Cash থেকে Bank, বা Bank থেকে Cash"],
+      "say": "এফ ফোর, কন্ট্রা ভাউচার। ক্যাশ ব্যাঙ্কে জমা দিলে, বা ব্যাঙ্ক থেকে ক্যাশ তুললে।"
+    },
+    {
+      "heading": "F7 = Journal",
+      "doodle": "keycap:F7",
+      "points": ["Cash বা Bank ছাড়া Adjustment Entry"],
+      "say": "এফ সেভেন, জার্নাল ভাউচার। ক্যাশ বা ব্যাঙ্ক ছাড়া অ্যাডজাস্টমেন্ট এন্ট্রির জন্য, যেমন মাসের শেষে বাকি স্যালারি বুক করা।"
+    },
+    {
+      "heading": "Save করে রাখুন, Follow করুন!",
+      "doodle": ["like", "subscribe"],
+      "say": "ভিডিওটা সেভ করে রাখুন, আর এমন সহজ টালি টিপসের জন্য ফলো করুন।"
+    }
+  ]
+}
