@@ -93,6 +93,20 @@ A scene needs only one of `heading`, `doodle` or `points`. A scene with only a h
 | `rupee` | ₹ coin |
 | `bank`, `school`, `student`, `teacher`, `calculator`, `plus`, `equals`, `arrow_left` | |
 
+**GST and business:**
+
+| Doodle | Draws |
+|---|---|
+| `percent:18%` | Rate badge |
+| `invoice:Tax Invoice` | Bill with GST and ₹ lines |
+| `state:West Bengal` | State outline with its name |
+| `shop`, `factory`, `truck`, `news`, `shield`, `handcuffs` | |
+
+## Series in this repo
+
+- `scripts/bangla/`: TallyPrime School Accounting extras (golden rules, receivable vs payable, voucher shortcuts).
+- `scripts/gst/`: **GST সহজ বাংলায়**, with EP 01 "GST কী?", the 57th GST Council update (long video + Short), and Shorts on GST 2.0 rates, CGST/SGST/IGST and Input Tax Credit. Facts as of October 2026: re-check rates and notifications before publishing an update.
+
 **General:** `arrow_down` `arrow_right` `bar_chart` `battery` `battery_low` `book` `brain` `calendar` `check` `clock` `coin` `cross` `decline_chart` `exclamation` `gear` `globe` `growth_chart` `heart` `hourglass` `house` `lightbulb` `like` `magnifier` `money` `mountain` `people` `person` `phone` `plant` `question` `rocket` `snowball` `speech` `star` `subscribe` `target` `trophy` `warning`
 
 To add your own, write a function in `doodles.py` that returns strokes in a 0–1 square. It is picked up automatically.

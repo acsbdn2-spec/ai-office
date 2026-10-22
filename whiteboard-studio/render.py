@@ -161,7 +161,7 @@ def draw_brand(img, brand, style, w, h):
         while f.getlength(name + rest) > (w * SS - x - 30 * SS) and size > 18:
             size -= 2
             f = font("BalooDa2-ExtraBold.ttf", size * SS, rest)
-        x = (w * SS - f.getlength(name + rest)) / 2
+        x = max(x, (w * SS - f.getlength(name + rest)) / 2)
         d.text((x, cy + 4 * SS), name, font=f, fill=style["badge"], anchor="lm")
         d.text((x + f.getlength(name), cy + 4 * SS), rest, font=f, fill=style["bar_text"], anchor="lm")
 
@@ -318,7 +318,10 @@ def regions(w, h, has_head, has_doodle, has_points, captions, brand=False):
         if not has_doodle and not has_points:
             return {"head": (120, 140, w - 240, h - 280)}
         r = {"head": (100, 50, w - 200, 160)}
-        if has_doodle and has_points:
+        if has_doodle and has_points and has_doodle >= 3:
+            r["doodle"] = (100, top, w - 200, 300)
+            r["points"] = (300, top + 320, w - 600, h - top - 380)
+        elif has_doodle and has_points:
             r["doodle"] = (90, top, 720, h - top - 70)
             r["points"] = (850, top + 10, w - 950, h - top - 90)
         elif has_doodle:
@@ -352,7 +355,7 @@ def build_scene(scene, style, w, h, rng, captions, brand=None):
             sys.exit(f"Unknown doodle '{n}'. Available: {', '.join(sorted(doodles.DOODLES))}")
     head = scene.get("heading", "")
     points = scene.get("points", [])
-    reg = regions(w, h, bool(head), bool(names), bool(points), captions, bool(brand))
+    reg = regions(w, h, bool(head), len(names), bool(points), captions, bool(brand))
     els = []
     width = style["width"] * SS
     colors = {k: style[k] for k in ("ink", "a1", "a2", "a3")}
@@ -616,6 +619,7 @@ def render(script, base_dir, out_path, fmt, preview=False):
     w, h = FORMATS[fmt]
     style = dict(STYLES[script.get("style", "whiteboard")])
     style.update({k: tuple(v) for k, v in script.get("colors", {}).items()})
+    style.update({k: script[k] for k in ("head_font", "body_font") if k in script})
     voice = script.get("voice", "en-us+m3")
     cfg = {"voice": voice, "rate": script.get("rate", 160), "pitch": script.get("pitch", 45),
            "speed": script.get("speed", "+0%"), "tone": script.get("tone", "+0Hz"),

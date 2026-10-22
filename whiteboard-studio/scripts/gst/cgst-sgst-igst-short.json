@@ -1,0 +1,59 @@
+{
+  "title": "CGST SGST IGST",
+  "format": "short",
+  "style": "scribble",
+  "head_font": "BalooDa2-ExtraBold.ttf",
+  "body_font": "Atma-SemiBold.ttf",
+  "voice": "bn-IN-TanishaaNeural",
+  "brand": {
+    "name": "PROTYASHA TAH",
+    "series": "GST সহজ বাংলায়"
+  },
+  "scenes": [
+    {
+      "heading": "CGST, SGST, IGST: কোনটা কখন?",
+      "doodle": "question",
+      "say": "সিজিএসটি, এসজিএসটি, আইজিএসটি, কোনটা কখন লাগে? এক মিনিটে বুঝে নিন।",
+      "thumbnail": true
+    },
+    {
+      "heading": "একই রাজ্যে বিক্রি",
+      "doodle": "state:West Bengal",
+      "points": [
+        "CGST + SGST, অর্ধেক অর্ধেক",
+        "18% হলে: 9% + 9%"
+      ],
+      "say": "বিক্রেতা আর ক্রেতা একই রাজ্যে হলে, সিজিএসটি আর এসজিএসটি, অর্ধেক অর্ধেক। আঠারো শতাংশ হলে, নয় আর নয়।"
+    },
+    {
+      "heading": "অন্য রাজ্যে বিক্রি",
+      "doodle": [
+        "state:West Bengal",
+        "arrow_right",
+        "state:Bihar"
+      ],
+      "points": [
+        "পুরো 18%-টাই IGST"
+      ],
+      "say": "আর অন্য রাজ্যে বিক্রি হলে, পুরো আঠারো শতাংশই আইজিএসটি।"
+    },
+    {
+      "heading": "টাকাটা কে পায়?",
+      "doodle": "bank",
+      "points": [
+        "CGST: কেন্দ্র",
+        "SGST: রাজ্য",
+        "IGST: কেন্দ্র, পরে রাজ্যের সাথে ভাগ"
+      ],
+      "say": "সিজিএসটি যায় কেন্দ্রের কাছে, এসজিএসটি রাজ্যের কাছে। আর আইজিএসটি প্রথমে কেন্দ্র নেয়, পরে যে রাজ্যে মাল গেল, তার সাথে ভাগ করে।"
+    },
+    {
+      "heading": "Follow করুন: GST সহজ বাংলায়",
+      "doodle": [
+        "like",
+        "subscribe"
+      ],
+      "say": "জিএসটি আর বিজনেসের এমন সহজ আপডেটের জন্য ফলো করুন।"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "title": "Input Tax Credit",
+  "format": "short",
+  "style": "scribble",
+  "head_font": "BalooDa2-ExtraBold.ttf",
+  "body_font": "Atma-SemiBold.ttf",
+  "voice": "bn-IN-TanishaaNeural",
+  "brand": {
+    "name": "PROTYASHA TAH",
+    "series": "GST সহজ বাংলায়"
+  },
+  "scenes": [
+    {
+      "heading": "Input Tax Credit: ৩০ সেকেন্ডে",
+      "doodle": "lightbulb",
+      "say": "ইনপুট ট্যাক্স ক্রেডিট, তিরিশ সেকেন্ডে বুঝিয়ে দিচ্ছি।",
+      "thumbnail": true
+    },
+    {
+      "heading": "কিনলেন ₹10,000-এর মাল",
+      "doodle": "factory",
+      "points": [
+        "GST দিলেন ₹1,800"
+      ],
+      "say": "ধরুন দশ হাজার টাকার মাল কিনলেন, আঠারো শতাংশ জিএসটি দিলেন, এক হাজার আটশো টাকা।"
+    },
+    {
+      "heading": "বেচলেন ₹15,000-এ",
+      "doodle": "shop",
+      "points": [
+        "GST পেলেন ₹2,700"
+      ],
+      "say": "সেই মাল পনেরো হাজার টাকায় বেচলেন, জিএসটি পেলেন দু হাজার সাতশো টাকা।"
+    },
+    {
+      "heading": "সরকারকে দেবেন মাত্র ₹900",
+      "doodle": "calculator",
+      "say": "এবার কেনার সময় দেওয়া এক হাজার আটশো টাকা বাদ দিন। সরকারকে দেবেন শুধু নশো টাকা। এটাই ইনপুট ট্যাক্স ক্রেডিট।",
+      "points": [
+        "বিক্রির GST থেকে কেনার GST বাদ",
+        "₹2,700 - ₹1,800 = ₹900"
+      ],
+      "bullet": "number"
+    },
+    {
+      "heading": "ITC পেতে যা লাগবে",
+      "doodle": "invoice:Tax Invoice",
+      "points": [
+        "Tax Invoice থাকতে হবে",
+        "বিলটা GSTR-2B-তে দেখাতে হবে"
+      ],
+      "say": "তবে আইটিসি পেতে, আপনার কাছে ট্যাক্স ইনভয়েস থাকতে হবে, আর সেই বিল আপনার জিএসটিআর টু বি তে দেখাতে হবে।"
+    },
+    {
+      "heading": "Follow করুন: GST সহজ বাংলায়",
+      "doodle": [
+        "like",
+        "subscribe"
+      ],
+      "say": "জিএসটি আর বিজনেসের এমন সহজ আপডেটের জন্য ফলো করুন।"
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "title": "GST 2.0 Rates",
+  "format": "short",
+  "style": "scribble",
+  "head_font": "BalooDa2-ExtraBold.ttf",
+  "body_font": "Atma-SemiBold.ttf",
+  "voice": "bn-IN-TanishaaNeural",
+  "brand": {
+    "name": "PROTYASHA TAH",
+    "series": "GST সহজ বাংলায়"
+  },
+  "scenes": [
+    {
+      "heading": "GST-তে এখন মূলত ৩টে Rate!",
+      "doodle": "percent:GST 2.0",
+      "say": "জিএসটিতে এখন মূলত তিনটে রেট। কোনটা কীসে লাগে, দেখে নিন।",
+      "thumbnail": true
+    },
+    {
+      "heading": "5%: দরকারি জিনিস",
+      "doodle": "percent:5%",
+      "points": [
+        "সাবান, শ্যাম্পু, টুথপেস্টের মতো রোজকার জিনিস"
+      ],
+      "say": "পাঁচ শতাংশ, দরকারি জিনিসের জন্য। যেমন সাবান, শ্যাম্পু, টুথপেস্টের মতো রোজকার জিনিস।"
+    },
+    {
+      "heading": "18%: Standard Rate",
+      "doodle": "percent:18%",
+      "points": [
+        "বেশিরভাগ জিনিস আর সার্ভিস"
+      ],
+      "say": "আঠারো শতাংশ, স্ট্যান্ডার্ড রেট। বেশিরভাগ জিনিস আর সার্ভিসে এটাই লাগে।"
+    },
+    {
+      "heading": "40%: বিলাসিতা ও ক্ষতিকর জিনিস",
+      "doodle": "percent:40%",
+      "points": [
+        "যেমন Cold Drink, বড় গাড়ি"
+      ],
+      "say": "চল্লিশ শতাংশ, বিলাসিতা আর ক্ষতিকর জিনিসের জন্য। যেমন কোল্ড ড্রিংক আর বড় গাড়ি।"
+    },
+    {
+      "heading": "12% আর 28% আর নেই",
+      "doodle": "cross",
+      "points": [
+        "Health ও Life Insurance এখন GST-মুক্ত"
+      ],
+      "say": "বারো আর আঠাশ শতাংশের স্ল্যাব উঠে গেছে। আর ব্যক্তিগত হেলথ আর লাইফ ইনস্যুরেন্সে এখন কোনো জিএসটি নেই।"
+    },
+    {
+      "heading": "নিজের জিনিসের Rate? HSN Code দেখুন",
+      "doodle": [
+        "like",
+        "subscribe"
+      ],
+      "say": "আপনার জিনিসে ঠিক কত রেট, সেটা এইচ এস এন কোড দেখে মিলিয়ে নিন। এমন আরও আপডেটের জন্য ফলো করুন।"
+    }
+  ]
+}
