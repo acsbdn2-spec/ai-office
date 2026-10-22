@@ -1,0 +1,49 @@
+{
+  "title": "Compound Interest: The Money Snowball",
+  "format": "landscape",
+  "style": "whiteboard",
+  "voice": "en-us+m3",
+  "rate": 158,
+  "scenes": [
+    {
+      "heading": "Why Rich People Get Richer",
+      "doodle": ["coin", "arrow_right", "snowball"],
+      "say": "Why do rich people keep getting richer? The answer is one simple idea called compound interest. Let me draw it out for you.",
+      "thumbnail": true
+    },
+    {
+      "heading": "Simple Interest",
+      "doodle": "bar_chart",
+      "points": ["You invest $1,000 at 10% a year", "You earn $100 every year", "After 30 years: $4,000"],
+      "say": "First, simple interest. You invest one thousand dollars at ten percent. You earn one hundred dollars every year, no matter what. After thirty years, you have four thousand dollars."
+    },
+    {
+      "heading": "Compound Interest",
+      "doodle": "growth_chart",
+      "points": ["Your interest earns interest", "Year 1: $1,100. Year 2: $1,210", "After 30 years: $17,449!"],
+      "say": "Now, compound interest. This time, your interest also earns interest. Year one, eleven hundred. Year two, twelve hundred and ten. After thirty years, you have over seventeen thousand dollars."
+    },
+    {
+      "heading": "It Works Like a Snowball",
+      "doodle": "snowball",
+      "say": "It works like a snowball rolling down a hill. It starts small and slow, but the bigger it gets, the faster it grows."
+    },
+    {
+      "heading": "Time Is the Secret Ingredient",
+      "doodle": ["hourglass", "plant"],
+      "points": ["Start early, even with a little", "Don't touch the money", "Let the years do the work"],
+      "say": "The secret ingredient is time. Start early, even with a small amount. Don't touch the money. And let the years do the heavy lifting."
+    },
+    {
+      "heading": "It Can Work Against You Too",
+      "doodle": "warning",
+      "points": ["Credit card debt compounds too", "At 25%, debt doubles in about 3 years", "Pay it off first"],
+      "say": "But be careful. Compounding works against you too. Credit card debt at twenty five percent doubles in about three years. So pay it off first."
+    },
+    {
+      "heading": "Subscribe for More Money Lessons!",
+      "doodle": ["subscribe", "like"],
+      "say": "If this helped, hit subscribe and like for more simple money lessons, drawn out on the whiteboard."
+    }
+  ]
+}

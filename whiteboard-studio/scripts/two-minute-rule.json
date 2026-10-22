@@ -1,0 +1,39 @@
+{
+  "title": "The 2-Minute Rule",
+  "format": "short",
+  "style": "scribble",
+  "voice": "en-us+f3",
+  "rate": 165,
+  "scenes": [
+    {
+      "heading": "Stop Procrastinating in 2 Minutes",
+      "doodle": "clock",
+      "say": "Here is how to stop procrastinating, in just two minutes.",
+      "thumbnail": true
+    },
+    {
+      "heading": "The 2-Minute Rule",
+      "doodle": "lightbulb",
+      "points": ["If it takes under 2 minutes, do it NOW"],
+      "say": "It's called the two minute rule. If a task takes less than two minutes, do it right now."
+    },
+    {
+      "heading": "Big Task? Shrink It.",
+      "doodle": ["mountain", "arrow_right", "check"],
+      "points": ["Read a book? Read 1 page", "Go running? Put on your shoes"],
+      "bullet": "arrow",
+      "say": "Got a big task? Shrink it down to its first two minutes. Read one page. Put on your running shoes."
+    },
+    {
+      "heading": "Why It Works",
+      "doodle": "brain",
+      "points": ["Starting is the hardest part", "Momentum does the rest"],
+      "say": "Why does it work? Because starting is the hardest part. Once you begin, momentum does the rest."
+    },
+    {
+      "heading": "Try It Today! Follow for more",
+      "doodle": ["subscribe", "like"],
+      "say": "Try it today, and follow for more life hacks."
+    }
+  ]
+}
