@@ -33,9 +33,15 @@ jobs:
           fetch-depth: 0
 
       - name: Install tools
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q ffmpeg espeak-ng libraqm0 libfribidi0 libharfbuzz0b
+          # a slow package mirror can hang apt; retry with a per-attempt limit
+          for i in 1 2 3; do
+            sudo timeout 240 apt-get update -q && \
+              sudo timeout 300 apt-get install -y -q ffmpeg espeak-ng libraqm0 libfribidi0 libharfbuzz0b && break
+            echo "apt attempt $i failed, retrying"; sleep 10
+          done
+          command -v ffmpeg >/dev/null || { echo "could not install ffmpeg"; exit 1; }
           pip install -q pillow edge-tts gTTS
           python -c "from PIL import features; assert features.check('raqm'), 'Pillow lacks raqm: Bangla text would not shape correctly'"
 
